@@ -2,10 +2,6 @@
 .github
 .next
 node_modules
-.env*
-!.env.example
+deploy
 *.log
-.DS_Store
-.vscode
-.idea
-coverage
+.env*
