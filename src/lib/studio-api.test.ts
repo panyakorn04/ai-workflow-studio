@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStudioOverview } from "./studio-api";
+import { getStudioOverview, parseStudioOverview } from "./studio-api";
 
 describe("studio API contract", () => {
   test("accepts the backend success envelope", () => {
@@ -21,5 +21,33 @@ describe("studio API contract", () => {
       ok: true,
       data: { workflows: [{}], executions: [{}], stages: [{}] },
     })).toThrow("Invalid studio overview response");
+    expect(() => parseStudioOverview({
+      ok: true,
+      data: {
+        workflows: [{ id: "wf", name: "Bad", description: "Bad", category: "Test", status: "unknown", runs: -1, success: 101, updated: "now", nodes: [] }],
+        executions: [{ id: "run", workflow: "Bad", status: "running", started: "now", duration: "0", durationMs: -1, cost: Number.NaN }],
+        stages: [{ name: "Bad", detail: "Bad", state: "unknown" }],
+      },
+    })).toThrow("Invalid studio overview response");
+  });
+
+  test("falls back on a non-success response and normalizes the URL", async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseURL = process.env.FRONTEND_API_BASE_URL;
+    let requestedURL = "";
+    process.env.FRONTEND_API_BASE_URL = "https://api.example.test/";
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      requestedURL = String(input);
+      return new Response("unavailable", { status: 503 });
+    }) as typeof fetch;
+    try {
+      const result = await getStudioOverview();
+      expect(requestedURL).toBe("https://api.example.test/api/studio/overview");
+      expect(result.source).toBe("fallback");
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseURL === undefined) delete process.env.FRONTEND_API_BASE_URL;
+      else process.env.FRONTEND_API_BASE_URL = originalBaseURL;
+    }
   });
 });

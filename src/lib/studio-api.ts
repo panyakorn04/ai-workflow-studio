@@ -24,7 +24,8 @@ function isWorkflow(value: unknown): value is StudioWorkflow {
   return typeof value.id === "string" && typeof value.name === "string" &&
     typeof value.description === "string" && typeof value.category === "string" &&
     ["active", "draft", "paused"].includes(String(value.status)) &&
-    typeof value.runs === "number" && typeof value.success === "number" &&
+    typeof value.runs === "number" && Number.isFinite(value.runs) && value.runs >= 0 &&
+    typeof value.success === "number" && Number.isFinite(value.success) && value.success >= 0 && value.success <= 100 &&
     typeof value.updated === "string" && Array.isArray(value.nodes) &&
     value.nodes.every((node) => typeof node === "string");
 }
@@ -34,7 +35,8 @@ function isExecution(value: unknown): value is StudioExecution {
   return typeof value.id === "string" && typeof value.workflow === "string" &&
     ["completed", "running", "failed", "waiting"].includes(String(value.status)) &&
     typeof value.started === "string" && typeof value.duration === "string" &&
-    typeof value.durationMs === "number" && typeof value.cost === "number";
+    typeof value.durationMs === "number" && Number.isFinite(value.durationMs) && value.durationMs >= 0 &&
+    typeof value.cost === "number" && Number.isFinite(value.cost) && value.cost >= 0;
 }
 
 function isStage(value: unknown): value is StudioStage {
