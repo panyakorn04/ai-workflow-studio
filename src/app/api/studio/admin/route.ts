@@ -14,8 +14,8 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: { message: "Invalid command." } }, { status: 400 });
   }
-  const allowed = new Set(["pause", "retry", "cancel", "approve", "create-workflow", "update-workflow"]);
-  if (!command || typeof command !== "object" || !allowed.has(command.action) || ("id" in command && typeof command.id !== "string")) {
+  const allowed = new Set(["pause", "retry", "cancel", "approve", "create-execution", "create-workflow", "update-workflow"]);
+  if (!command || typeof command !== "object" || !allowed.has(command.action) || ("id" in command && typeof command.id !== "string") || (command.action === "create-execution" && (!("workflowId" in command) || typeof command.workflowId !== "string" || !command.workflowId.trim()))) {
     return NextResponse.json({ ok: false, error: { message: "Unsupported command." } }, { status: 400 });
   }
 

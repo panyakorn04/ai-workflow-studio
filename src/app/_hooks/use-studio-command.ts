@@ -9,7 +9,7 @@ export function useStudioCommand(authenticated: boolean, onUnauthorized: () => v
   const [message, setMessage] = useState<string | null>(null);
   async function run(command: StudioAdminCommand) {
     if (!authenticated) { setMessage("Admin sign-in required."); return false; }
-    setPending(command.action); setMessage(null);
+    setPending(command.action === "create-execution" ? `create-execution:${command.workflowId}` : command.action); setMessage(null);
     try {
       const response = await fetch("/api/studio/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(command) });
       const result = await response.json();

@@ -17,10 +17,11 @@ A production-oriented control plane for agentic workflows. This repository is th
 - Searchable workflow inventory and status filters
 - Live execution timeline with human approval gate
 - Recent execution inspector
+- Authenticated Run controls for active workflows, proxied through the session-backed mutation BFF
 - Cost, success, latency, and volume signals
 - Typed workflow query/metrics utilities with tests
 
-The current data is intentionally local demo data. No credentials or production actions are embedded in the frontend.
+Public reads retain a local fallback. Authenticated controls never embed credentials: the BFF forwards only the named admin session cookie to allowlisted backend routes.
 
 ## Local development
 
