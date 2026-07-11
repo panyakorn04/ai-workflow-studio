@@ -12,6 +12,8 @@ A production-oriented control plane for agentic workflows. This repository is th
 ## Current MVP
 
 - Responsive operations dashboard
+- Server-side integration with `portfolio-backend-2026` via `GET /api/studio/overview`
+- Validated API envelope with a safe local fallback when the backend is unavailable
 - Searchable workflow inventory and status filters
 - Live execution timeline with human approval gate
 - Recent execution inspector

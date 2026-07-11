@@ -15,9 +15,9 @@ export const executions = [
 ];
 
 export const loopStages = [
-  { name: "Discover", detail: "Found 12 rights-allowed sources", state: "done" },
-  { name: "Analyze", detail: "Ranked 8 candidate moments", state: "done" },
-  { name: "Generate", detail: "Creating bilingual captions", state: "running" },
-  { name: "Approval", detail: "Human review required", state: "pending" },
-  { name: "Publish", detail: "Destination: Social queue", state: "pending" },
+  { name: "Discover", detail: "Found 12 rights-allowed sources", state: "done" as const },
+  { name: "Analyze", detail: "Ranked 8 candidate moments", state: "done" as const },
+  { name: "Generate", detail: "Creating bilingual captions", state: "running" as const },
+  { name: "Approval", detail: "Human review required", state: "pending" as const },
+  { name: "Publish", detail: "Destination: Social queue", state: "pending" as const },
 ];
