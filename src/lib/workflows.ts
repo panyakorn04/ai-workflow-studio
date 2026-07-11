@@ -1,5 +1,5 @@
 export type WorkflowStatus = "active" | "draft" | "paused";
-export type ExecutionStatus = "completed" | "running" | "failed" | "waiting";
+export type ExecutionStatus = "completed" | "running" | "failed" | "waiting" | "paused" | "approved" | "cancelled";
 export type WorkflowSummary = { id: string; name: string; status: WorkflowStatus; category: string };
 export type ExecutionSummary = { status: ExecutionStatus; durationMs: number; cost: number };
 

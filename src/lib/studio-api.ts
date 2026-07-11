@@ -33,7 +33,7 @@ function isWorkflow(value: unknown): value is StudioWorkflow {
 function isExecution(value: unknown): value is StudioExecution {
   if (!isRecord(value)) return false;
   return typeof value.id === "string" && typeof value.workflow === "string" &&
-    ["completed", "running", "failed", "waiting"].includes(String(value.status)) &&
+    ["completed", "running", "failed", "waiting", "paused", "approved", "cancelled"].includes(String(value.status)) &&
     typeof value.started === "string" && typeof value.duration === "string" &&
     typeof value.durationMs === "number" && Number.isFinite(value.durationMs) && value.durationMs >= 0 &&
     typeof value.cost === "number" && Number.isFinite(value.cost) && value.cost >= 0;
