@@ -1,0 +1,9 @@
+
+/* Accessibility and demo-state affordances */
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{cursor:not-allowed;opacity:.48}
+.search:focus-within{border-color:rgba(113,112,255,.65);box-shadow:0 0 0 2px rgba(113,112,255,.12)}
+.live-dot.completed{background:var(--green)}.live-dot.failed{background:var(--red);box-shadow:0 0 0 4px rgba(238,107,110,.09)}.live-dot.waiting{background:var(--amber);box-shadow:0 0 0 4px rgba(231,170,72,.09)}
+.stage.failed .stage-rail span{color:var(--red);border-color:rgba(238,107,110,.35);background:rgba(238,107,110,.09)}
+.timeline-static .progress{display:none}
+@media(max-width:720px){.sidebar{overflow-x:auto}.sidebar .brand{flex:0 0 auto}.sidebar nav{display:flex!important;margin-left:auto;gap:4px}.sidebar nav p,.sidebar nav .nav-item:not(.active){display:none}.sidebar nav .nav-item.active{width:auto}.sidebar nav .nav-item.active span{display:inline}}
