@@ -13,8 +13,8 @@ export function useStudioCommand() {
       const response = await fetch("/api/studio/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(command) });
       const result = await response.json();
       if (!response.ok) throw new Error(result?.error?.message || "Studio action failed.");
-      setMessage(`${command.action} completed`); router.refresh();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Studio action failed."); }
+      setMessage(`${command.action} completed`); router.refresh(); return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Studio action failed."); return false; }
     finally { setPending(null); }
   }
   return { run, pending, message };
