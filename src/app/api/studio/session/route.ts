@@ -33,6 +33,10 @@ async function proxySession(request: Request, method: "GET" | "POST" | "DELETE")
       signal: AbortSignal.timeout(10000),
     });
     const payload = await backend.json().catch(() => ({ ok: false, error: { message: "Backend returned an invalid response." } }));
+    // Session absence is an expected public read-only state, not a failed resource load.
+    if (method === "GET" && backend.status === 401) {
+      return NextResponse.json({ ok: true, data: { authenticated: false, user: null } });
+    }
     const response = NextResponse.json(payload, { status: backend.status });
 
     if (method === "POST" && backend.ok) {
