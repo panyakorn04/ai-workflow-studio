@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  SESSION_COOKIE_NAME,
   cookieHeaderForBackend,
+  SESSION_COOKIE_NAME,
   sessionCookieFromSetCookie,
   sessionCookieOptions,
   studioBackendURL,
@@ -32,7 +32,9 @@ async function proxySession(request: Request, method: "GET" | "POST" | "DELETE")
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
-    const payload = await backend.json().catch(() => ({ ok: false, error: { message: "Backend returned an invalid response." } }));
+    const payload = await backend
+      .json()
+      .catch(() => ({ ok: false, error: { message: "Backend returned an invalid response." } }));
     // Session absence is an expected public read-only state, not a failed resource load.
     if (method === "GET" && backend.status === 401) {
       return NextResponse.json({ ok: true, data: { authenticated: false, user: null } });
@@ -42,7 +44,10 @@ async function proxySession(request: Request, method: "GET" | "POST" | "DELETE")
     if (method === "POST" && backend.ok) {
       const token = sessionCookieFromSetCookie(backend.headers.get("set-cookie"));
       if (!token) {
-        return NextResponse.json({ ok: false, error: { message: "Sign-in did not create a session." } }, { status: 502 });
+        return NextResponse.json(
+          { ok: false, error: { message: "Sign-in did not create a session." } },
+          { status: 502 },
+        );
       }
       response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
     }
@@ -55,6 +60,12 @@ async function proxySession(request: Request, method: "GET" | "POST" | "DELETE")
   }
 }
 
-export function GET(request: Request) { return proxySession(request, "GET"); }
-export function POST(request: Request) { return proxySession(request, "POST"); }
-export function DELETE(request: Request) { return proxySession(request, "DELETE"); }
+export function GET(request: Request) {
+  return proxySession(request, "GET");
+}
+export function POST(request: Request) {
+  return proxySession(request, "POST");
+}
+export function DELETE(request: Request) {
+  return proxySession(request, "DELETE");
+}

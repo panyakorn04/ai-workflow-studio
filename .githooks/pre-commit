@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+set -eu
+
+PACKAGE_JSON="package.json"
+
+CURRENT=$(node -p "require('./$PACKAGE_JSON').version")
+MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+MINOR=$(echo "$CURRENT" | cut -d. -f2)
+PATCH=$(echo "$CURRENT" | cut -d. -f3)
+NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+
+node -e "
+const p = require('./$PACKAGE_JSON');
+p.version = '$NEXT';
+require('fs').writeFileSync('./$PACKAGE_JSON', JSON.stringify(p, null, 2) + '\n');
+"
+
+git add "$PACKAGE_JSON"

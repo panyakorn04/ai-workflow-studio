@@ -5,8 +5,11 @@ export type ExecutionSummary = { status: ExecutionStatus; durationMs: number; co
 
 export function filterWorkflows<T extends WorkflowSummary>(items: T[], query: string, status: WorkflowStatus | "all") {
   const normalized = query.trim().toLowerCase();
-  return items.filter((item) => (status === "all" || item.status === status) &&
-    (!normalized || `${item.name} ${item.category}`.toLowerCase().includes(normalized)));
+  return items.filter(
+    (item) =>
+      (status === "all" || item.status === status) &&
+      (!normalized || `${item.name} ${item.category}`.toLowerCase().includes(normalized)),
+  );
 }
 
 export function summarizeExecutions(items: ExecutionSummary[]) {

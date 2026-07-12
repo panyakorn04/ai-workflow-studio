@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  SESSION_COOKIE_NAME,
   cookieHeaderForBackend,
+  SESSION_COOKIE_NAME,
   sessionCookieFromSetCookie,
   sessionCookieOptions,
 } from "./studio-session";
@@ -19,8 +19,9 @@ describe("studio admin session boundary", () => {
   });
 
   test("extracts the backend session without exposing cookie attributes", () => {
-    expect(sessionCookieFromSetCookie("portfolio_admin_session=abc%2F123; Path=/; HttpOnly; SameSite=Lax"))
-      .toBe("abc%2F123");
+    expect(sessionCookieFromSetCookie("portfolio_admin_session=abc%2F123; Path=/; HttpOnly; SameSite=Lax")).toBe(
+      "abc%2F123",
+    );
   });
 
   test("reissues a host-only secure HttpOnly cookie", () => {

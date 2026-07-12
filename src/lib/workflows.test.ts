@@ -13,9 +13,11 @@ describe("workflow queries", () => {
   });
 
   test("summarizes execution health", () => {
-    expect(summarizeExecutions([
-      { status: "completed" as const, durationMs: 1200, cost: 0.04 },
-      { status: "failed" as const, durationMs: 800, cost: 0.02 },
-    ])).toEqual({ total: 2, successRate: 50, averageDurationMs: 1000, totalCost: 0.06 });
+    expect(
+      summarizeExecutions([
+        { status: "completed" as const, durationMs: 1200, cost: 0.04 },
+        { status: "failed" as const, durationMs: 800, cost: 0.02 },
+      ]),
+    ).toEqual({ total: 2, successRate: 50, averageDurationMs: 1000, totalCost: 0.06 });
   });
 });

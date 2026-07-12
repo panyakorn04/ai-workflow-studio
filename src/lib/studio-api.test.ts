@@ -6,8 +6,30 @@ describe("studio API contract", () => {
     const result = parseStudioOverview({
       ok: true,
       data: {
-        workflows: [{ id: "wf-1", name: "Research", description: "Research flow", category: "Research", status: "active", runs: 12, success: 99, updated: "now", nodes: ["Search"] }],
-        executions: [{ id: "run-1", workflow: "Research", status: "running", started: "now", duration: "00:10", durationMs: 10000, cost: 0.01 }],
+        workflows: [
+          {
+            id: "wf-1",
+            name: "Research",
+            description: "Research flow",
+            category: "Research",
+            status: "active",
+            runs: 12,
+            success: 99,
+            updated: "now",
+            nodes: ["Search"],
+          },
+        ],
+        executions: [
+          {
+            id: "run-1",
+            workflow: "Research",
+            status: "running",
+            started: "now",
+            duration: "00:10",
+            durationMs: 10000,
+            cost: 0.01,
+          },
+        ],
         stages: [{ name: "Search", detail: "Searching", state: "running" }],
       },
     });
@@ -16,19 +38,47 @@ describe("studio API contract", () => {
   });
 
   test("rejects malformed backend data", () => {
-    expect(() => parseStudioOverview({ ok: true, data: { workflows: [] } })).toThrow("Invalid studio overview response");
-    expect(() => parseStudioOverview({
-      ok: true,
-      data: { workflows: [{}], executions: [{}], stages: [{}] },
-    })).toThrow("Invalid studio overview response");
-    expect(() => parseStudioOverview({
-      ok: true,
-      data: {
-        workflows: [{ id: "wf", name: "Bad", description: "Bad", category: "Test", status: "unknown", runs: -1, success: 101, updated: "now", nodes: [] }],
-        executions: [{ id: "run", workflow: "Bad", status: "running", started: "now", duration: "0", durationMs: -1, cost: Number.NaN }],
-        stages: [{ name: "Bad", detail: "Bad", state: "unknown" }],
-      },
-    })).toThrow("Invalid studio overview response");
+    expect(() => parseStudioOverview({ ok: true, data: { workflows: [] } })).toThrow(
+      "Invalid studio overview response",
+    );
+    expect(() =>
+      parseStudioOverview({
+        ok: true,
+        data: { workflows: [{}], executions: [{}], stages: [{}] },
+      }),
+    ).toThrow("Invalid studio overview response");
+    expect(() =>
+      parseStudioOverview({
+        ok: true,
+        data: {
+          workflows: [
+            {
+              id: "wf",
+              name: "Bad",
+              description: "Bad",
+              category: "Test",
+              status: "unknown",
+              runs: -1,
+              success: 101,
+              updated: "now",
+              nodes: [],
+            },
+          ],
+          executions: [
+            {
+              id: "run",
+              workflow: "Bad",
+              status: "running",
+              started: "now",
+              duration: "0",
+              durationMs: -1,
+              cost: Number.NaN,
+            },
+          ],
+          stages: [{ name: "Bad", detail: "Bad", state: "unknown" }],
+        },
+      }),
+    ).toThrow("Invalid studio overview response");
   });
 
   test("falls back on a non-success response and normalizes the URL", async () => {

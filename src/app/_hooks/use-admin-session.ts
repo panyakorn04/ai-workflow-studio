@@ -29,7 +29,12 @@ export function useAdminSession() {
       const response = await fetch("/api/studio/session", { cache: "no-store" });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setState({ authenticated: false, user: null, loading: false, error: response.status === 401 ? null : errorMessage(payload, "Unable to check admin session.") });
+        setState({
+          authenticated: false,
+          user: null,
+          loading: false,
+          error: response.status === 401 ? null : errorMessage(payload, "Unable to check admin session."),
+        });
         return;
       }
       const data = payload?.data;
@@ -41,25 +46,44 @@ export function useAdminSession() {
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/studio/session", { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json().catch(() => null);
-      if (!active) return;
-      if (!response.ok) {
-        setState({ authenticated: false, user: null, loading: false, error: response.status === 401 ? null : errorMessage(payload, "Unable to check admin session.") });
-        return;
-      }
-      const data = payload?.data;
-      setState({ authenticated: data?.authenticated === true, user: data?.user ?? null, loading: false, error: null });
-    }).catch(() => {
-      if (active) setState({ authenticated: false, user: null, loading: false, error: "Unable to check admin session." });
-    });
-    return () => { active = false; };
+    void fetch("/api/studio/session", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null);
+        if (!active) return;
+        if (!response.ok) {
+          setState({
+            authenticated: false,
+            user: null,
+            loading: false,
+            error: response.status === 401 ? null : errorMessage(payload, "Unable to check admin session."),
+          });
+          return;
+        }
+        const data = payload?.data;
+        setState({
+          authenticated: data?.authenticated === true,
+          user: data?.user ?? null,
+          loading: false,
+          error: null,
+        });
+      })
+      .catch(() => {
+        if (active)
+          setState({ authenticated: false, user: null, loading: false, error: "Unable to check admin session." });
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setState((current) => ({ ...current, loading: true, error: null }));
     try {
-      const response = await fetch("/api/studio/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const response = await fetch("/api/studio/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         setState({ authenticated: false, user: null, loading: false, error: errorMessage(payload, "Sign-in failed.") });
@@ -75,7 +99,9 @@ export function useAdminSession() {
 
   const logout = async () => {
     setState((current) => ({ ...current, loading: true, error: null }));
-    try { await fetch("/api/studio/session", { method: "DELETE" }); } finally {
+    try {
+      await fetch("/api/studio/session", { method: "DELETE" });
+    } finally {
       setState({ authenticated: false, user: null, loading: false, error: null });
     }
   };

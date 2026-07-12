@@ -1,3 +1,292 @@
-
-.modal-backdrop{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.76);display:grid;place-items:center;padding:20px}.workflow-modal{width:min(520px,100%);border:1px solid var(--border);border-radius:12px;background:#111216;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:20px}.workflow-modal header{display:flex;justify-content:space-between;align-items:start;margin-bottom:18px}.workflow-modal header p{font:8px var(--font-mono);letter-spacing:.12em;color:var(--accent);margin:0 0 6px}.workflow-modal h2{font-size:18px;margin:0}.workflow-modal header button{border:0;background:transparent;color:var(--muted);font-size:22px}.workflow-modal form,.workflow-modal label{display:flex;flex-direction:column;gap:7px}.workflow-modal form{gap:14px}.workflow-modal label{font-size:10px;color:var(--muted)}.workflow-modal label small{color:var(--dim)}.workflow-modal input,.workflow-modal textarea,.workflow-modal select{border:1px solid var(--border);border-radius:6px;background:#0b0c0e;color:var(--text);padding:9px 10px;font-size:11px;outline:0}.workflow-modal textarea{min-height:78px;resize:vertical}.form-row{display:grid;grid-template-columns:1fr 140px;gap:12px}.workflow-modal footer{display:flex;justify-content:flex-end;gap:8px;margin-top:5px}.workflow-modal footer button{height:34px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.03);color:var(--secondary);padding:0 13px;font-size:10px}.workflow-modal footer .primary{background:#5e6ad2;color:white}.command-message{font-size:9px;color:var(--muted);margin:10px 0 0}.run-actions{grid-template-columns:1fr 1fr}
-.admin-access{display:flex;align-items:center;gap:8px;position:relative}.admin-access>span{display:flex;align-items:center;gap:6px;color:var(--secondary);font-size:10px}.admin-access .read-only{color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:5px 8px}.admin-access button,.admin-login button{height:32px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.03);color:var(--secondary);padding:0 10px;font-size:10px;display:flex;align-items:center;gap:6px}.admin-access small{position:absolute;right:0;top:38px;color:var(--red);white-space:nowrap}.admin-access.muted{font-size:10px;color:var(--muted)}.admin-login{position:absolute;z-index:20;right:36px;top:70px;width:min(460px,calc(100vw - 260px));display:grid;grid-template-columns:150px 130px auto;align-items:end;gap:8px;padding:10px;border:1px solid var(--border);border-radius:8px;background:#111216;box-shadow:0 18px 48px rgba(0,0,0,.5)}.admin-login label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:9px}.admin-login input{width:100%;height:30px;border:1px solid var(--border);border-radius:5px;background:#08090a;color:var(--text);padding:0 8px}.admin-login>div{display:flex;gap:5px}.admin-login small{grid-column:1/-1;color:var(--red);font-size:9px}@media(max-width:720px){.admin-login{position:fixed;top:64px;right:14px;left:14px;width:auto;grid-template-columns:1fr;max-height:calc(100dvh - 78px);overflow-y:auto}.admin-login small{grid-column:auto}}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.76);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.workflow-modal {
+  width: min(520px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #111216;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 20px;
+}
+.workflow-modal header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 18px;
+}
+.workflow-modal header p {
+  font: 8px var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+.workflow-modal h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.workflow-modal header button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+}
+.workflow-modal form,
+.workflow-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.workflow-modal form {
+  gap: 14px;
+}
+.workflow-modal label {
+  font-size: 10px;
+  color: var(--muted);
+}
+.workflow-modal label small {
+  color: var(--dim);
+}
+.workflow-modal input,
+.workflow-modal textarea,
+.workflow-modal select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #0b0c0e;
+  color: var(--text);
+  padding: 9px 10px;
+  font-size: 11px;
+  outline: 0;
+}
+.workflow-modal textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 12px;
+}
+.workflow-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 5px;
+}
+.workflow-modal footer button {
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--secondary);
+  padding: 0 13px;
+  font-size: 10px;
+}
+.workflow-modal footer .primary {
+  background: #5e6ad2;
+  color: white;
+}
+.command-message {
+  font-size: 9px;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.run-actions {
+  grid-template-columns: 1fr 1fr;
+}
+.admin-access {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.admin-access > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--secondary);
+  font-size: 10px;
+}
+.admin-access .read-only {
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 8px;
+}
+.admin-access button,
+.admin-login button {
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--secondary);
+  padding: 0 10px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-access small {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  color: var(--red);
+  white-space: nowrap;
+}
+.admin-access.muted {
+  font-size: 10px;
+  color: var(--muted);
+}
+.admin-login {
+  position: absolute;
+  z-index: 20;
+  right: 36px;
+  top: 70px;
+  width: min(460px, calc(100vw - 260px));
+  display: grid;
+  grid-template-columns: 150px 130px auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #111216;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+.admin-login label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.admin-login input {
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #08090a;
+  color: var(--text);
+  padding: 0 8px;
+}
+.admin-login > div {
+  display: flex;
+  gap: 5px;
+}
+.admin-login small {
+  grid-column: 1 / -1;
+  color: var(--red);
+  font-size: 9px;
+}
+@media (max-width: 720px) {
+  .admin-login {
+    position: fixed;
+    top: 64px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+    grid-template-columns: 1fr;
+    max-height: calc(100dvh - 78px);
+    overflow-y: auto;
+  }
+  .admin-login small {
+    grid-column: auto;
+  }
+}
+.signin-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 70% -20%, rgba(113, 112, 255, 0.11), transparent 34%), var(--bg);
+}
+.gate-card {
+  width: min(420px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #111216;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+.gate-icon {
+  height: 48px;
+  width: 48px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #7776ff, #4c4bb8);
+  box-shadow: 0 0 28px rgba(113, 112, 255, 0.28);
+  margin-bottom: 4px;
+}
+.gate-card h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+.gate-card > p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.55;
+  max-width: 320px;
+}
+.gate-card form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.gate-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.gate-card input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #0b0c0e;
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 12px;
+  outline: 0;
+}
+.gate-card input:focus {
+  border-color: var(--accent);
+}
+.gate-card small {
+  color: var(--red);
+  font-size: 10px;
+  text-align: left;
+}
+.gate-card button.primary {
+  height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: #5e6ad2;
+  color: white;
+  font-size: 12px;
+  font-weight: 510;
+  cursor: pointer;
+  width: 100%;
+}
+.gate-card button.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

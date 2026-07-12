@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "${SKIP_VERIFY:-}" = "1" ]; then
+  echo "[pre-push] SKIP_VERIFY=1 set; skipping local verification."
+  exit 0
+fi
+
+echo "[pre-push] Running local verification before push..."
+echo "[pre-push] bun run lint"
+bun run lint
+
+echo "[pre-push] bun run build"
+bun run build
+
+echo "[pre-push] Verification passed. Continuing push."
