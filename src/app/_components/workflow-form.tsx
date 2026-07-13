@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { StudioAdminCommand } from "@/lib/studio-admin";
 import type { StudioWorkflow } from "@/lib/studio-api";
 import { WorkflowCanvas } from "./workflow-canvas";
-import "../workflow-canvas.css";
 
 export function WorkflowForm({
   workflow,

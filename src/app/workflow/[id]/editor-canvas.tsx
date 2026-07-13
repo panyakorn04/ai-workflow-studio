@@ -45,7 +45,6 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
         target: sorted[i + 1].id,
         type: "smoothstep",
         animated: false,
-        style: { stroke: "var(--dim)", strokeWidth: 2 },
       });
     }
     setEdges(newEdges);
