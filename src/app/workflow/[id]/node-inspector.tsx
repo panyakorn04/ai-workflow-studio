@@ -14,11 +14,13 @@ const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export function NodeInspector({
   node,
   workflowId,
+  hasUnsavedChanges,
   onClose,
   onConfigChange,
 }: {
   node: WorkflowNodeDefinition | null;
   workflowId?: string;
+  hasUnsavedChanges: boolean;
   onClose: () => void;
   onConfigChange: (config: Record<string, unknown>) => void;
 }) {
@@ -40,7 +42,7 @@ export function NodeInspector({
       {node.type === "schedule" ? (
         <ScheduleTriggerForm config={node.config} onChange={onConfigChange} />
       ) : node.type === "manual" ? (
-        <ManualTriggerPanel key={node.id} node={node} workflowId={workflowId} />
+        <ManualTriggerPanel key={node.id} node={node} workflowId={workflowId} hasUnsavedChanges={hasUnsavedChanges} />
       ) : node.type === "webhook" ? (
         <div className="inspector-empty">
           <strong>Webhook trigger</strong>
@@ -56,14 +58,27 @@ export function NodeInspector({
   );
 }
 
-function ManualTriggerPanel({ node, workflowId }: { node: WorkflowNodeDefinition; workflowId?: string }) {
+function ManualTriggerPanel({
+  node,
+  workflowId,
+  hasUnsavedChanges,
+}: {
+  node: WorkflowNodeDefinition;
+  workflowId?: string;
+  hasUnsavedChanges: boolean;
+}) {
   const [output, setOutput] = useState<unknown>(null);
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
+  const blockedMessage = !workflowId
+    ? "Save this workflow before executing the Manual Trigger."
+    : hasUnsavedChanges
+      ? "Save your workflow changes before executing this Manual Trigger."
+      : "";
 
   const execute = async () => {
-    if (!workflowId) {
-      setError("Save this workflow before executing the Manual Trigger.");
+    if (blockedMessage) {
+      setError(blockedMessage);
       return;
     }
     setExecuting(true);
@@ -86,7 +101,12 @@ function ManualTriggerPanel({ node, workflowId }: { node: WorkflowNodeDefinition
 
   return (
     <div className="manual-trigger-panel">
-      <button type="button" className="manual-execute" onClick={execute} disabled={executing}>
+      <button
+        type="button"
+        className="manual-execute"
+        onClick={execute}
+        disabled={executing || Boolean(blockedMessage)}
+      >
         <Play size={14} /> {executing ? "Executing…" : "Execute step"}
       </button>
       <div className="manual-trigger-note">
@@ -98,7 +118,11 @@ function ManualTriggerPanel({ node, workflowId }: { node: WorkflowNodeDefinition
         </span>
         {output ? <small>JSON</small> : null}
       </div>
-      {error ? (
+      {blockedMessage ? (
+        <div className="manual-output-error" role="alert">
+          {blockedMessage}
+        </div>
+      ) : error ? (
         <div className="manual-output-error" role="alert">
           {error}
         </div>
@@ -108,7 +132,7 @@ function ManualTriggerPanel({ node, workflowId }: { node: WorkflowNodeDefinition
         <div className="manual-output-empty">
           <Braces size={22} />
           <strong>No trigger output</strong>
-          <button type="button" onClick={execute} disabled={executing}>
+          <button type="button" onClick={execute} disabled={executing || Boolean(blockedMessage)}>
             Test this trigger
           </button>
         </div>

@@ -77,6 +77,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
   const [definition, setDefinition] = useState<WorkflowDefinitionV1>(() =>
     workflow?.definition ? parseWorkflowDefinition(workflow.definition) : legacyLabelsToDefinition(fallbackLabels),
   );
+  const [definitionDirty, setDefinitionDirty] = useState(false);
   const [canvasSeed, setCanvasSeed] = useState(0);
   const [selectedNodeID, setSelectedNodeID] = useState<string | null>(definition.nodes[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
@@ -96,6 +97,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
         if (payload?.data?.definition) {
           const loaded = parseWorkflowDefinition(payload.data.definition);
           setDefinition(loaded);
+          setDefinitionDirty(false);
           setSelectedNodeID(loaded.nodes[0]?.id ?? null);
           setCanvasSeed((seed) => seed + 1);
         }
@@ -123,6 +125,10 @@ export function WorkflowEditorShell({ workflow }: Props) {
     },
     [selectedNodeID],
   );
+  const handleDefinitionChange = useCallback((updated: WorkflowDefinitionV1) => {
+    setDefinition(updated);
+    setDefinitionDirty(true);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (detailState !== "ready") {
@@ -158,6 +164,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error?.message ?? "Save failed");
+      setDefinitionDirty(false);
       if (isNew) router.push(`/workflow/${data.data.id}`);
       router.refresh();
     } catch (error) {
@@ -256,7 +263,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
               key={canvasSeed}
               ref={canvasRef}
               initial={definition}
-              onChange={setDefinition}
+              onChange={handleDefinitionChange}
               onSelectedNodeChange={setSelectedNodeID}
             />
           ) : (
@@ -269,6 +276,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
           <NodeInspector
             node={selectedNode}
             workflowId={workflow?.id}
+            hasUnsavedChanges={definitionDirty}
             onClose={() => setSelectedNodeID(null)}
             onConfigChange={updateSelectedConfig}
           />

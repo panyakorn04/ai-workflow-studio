@@ -132,6 +132,19 @@ describe("canvas persistence helpers", () => {
     ]);
   });
 
+  test("orders vertically aligned steps by y to match backend validation", () => {
+    const nodes = [
+      { id: "manual", position: { x: 0, y: 0 }, data: { nodeKind: "trigger" } },
+      { id: "lower", position: { x: 200, y: 200 }, data: { nodeKind: "action" } },
+      { id: "upper", position: { x: 200, y: 50 }, data: { nodeKind: "action" } },
+    ] as Node[];
+
+    expect(buildTriggerGraphEdges(nodes).map(({ source, target }) => `${source}->${target}`)).toEqual([
+      "manual->upper",
+      "upper->lower",
+    ]);
+  });
+
   test("renames a node without mutating the original collection", () => {
     const nodes = [{ id: "node-0", position: { x: 0, y: 0 }, data: { label: "Old" } }] as Node[];
     const updated = renameFlowNode(nodes, "node-0", "New");

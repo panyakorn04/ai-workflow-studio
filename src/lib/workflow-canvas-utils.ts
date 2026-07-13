@@ -76,7 +76,7 @@ export function buildTriggerGraphEdges(nodes: Node[]): Edge[] {
     .sort((a, b) => a.position.y - b.position.y);
   const steps = nodes
     .filter((node) => (node.data as { nodeKind?: string }).nodeKind !== "trigger")
-    .sort((a, b) => a.position.x - b.position.x);
+    .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
   if (steps.length === 0) return [];
   return [
     ...triggers.map((trigger) => graphEdge(trigger, steps[0])),
