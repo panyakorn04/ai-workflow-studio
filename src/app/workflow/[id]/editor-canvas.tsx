@@ -15,65 +15,152 @@ import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState
 import "@xyflow/react/dist/style.css";
 import { WorkflowNode } from "@/app/_components/workflow-node";
 import {
-  appendFlowNode,
   buildLinearEdges,
-  flowToNodes,
-  nodesToFlow,
-  renameFlowNode,
+  nextNodeId,
+  positionForNewNode,
   shouldPersistNodeChanges,
 } from "@/lib/workflow-canvas-utils";
+import {
+  defaultConfigForType,
+  nodeMetaForType,
+  type WorkflowDefinitionV1,
+  type WorkflowNodeDefinition,
+  type WorkflowNodeType,
+} from "@/lib/workflow-definition";
+
+type CanvasNodeData = {
+  label: string;
+  nodeType: WorkflowNodeType;
+  nodeKind: WorkflowNodeDefinition["kind"];
+  config: Record<string, unknown>;
+};
 
 type Props = {
-  initial: string[];
-  onChange: (nodes: string[]) => void;
+  initial: WorkflowDefinitionV1;
+  onChange: (definition: WorkflowDefinitionV1) => void;
+  onSelectedNodeChange: (id: string | null) => void;
 };
 
 export type WorkflowEditorCanvasHandle = {
-  addNode: (label: string) => void;
+  addNode: (type: WorkflowNodeType, label: string) => void;
+  updateNodeConfig: (id: string, config: Record<string, unknown>) => void;
 };
 
 const nodeTypes = { workflow: WorkflowNode };
 
+function definitionToFlow(definition: WorkflowDefinitionV1): { nodes: Node[]; edges: Edge[] } {
+  return {
+    nodes: definition.nodes.map((node) => ({
+      id: node.id,
+      type: "workflow",
+      position: node.position,
+      data: { label: node.label, nodeType: node.type, nodeKind: node.kind, config: node.config },
+    })),
+    edges: definition.edges.map((edge) => ({ ...edge, type: "smoothstep", animated: false })),
+  };
+}
+
+function flowToDefinition(nodes: Node[], edges: Edge[]): WorkflowDefinitionV1 {
+  return {
+    version: 1,
+    nodes: nodes.map((node) => {
+      const data = node.data as CanvasNodeData;
+      return {
+        id: node.id,
+        type: data.nodeType,
+        kind: data.nodeKind,
+        label: data.label,
+        position: node.position,
+        config: data.config,
+      };
+    }),
+    edges: edges.map((edge) => ({ id: edge.id, source: edge.source, target: edge.target })),
+  };
+}
+
 export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props>(function WorkflowEditorCanvas(
-  { initial, onChange },
+  { initial, onChange, onSelectedNodeChange },
   ref,
 ) {
-  const [nodes, setNodes] = useState<Node[]>(() => nodesToFlow(initial).nodes);
-  const [edges, setEdges] = useState<Edge[]>(() => nodesToFlow(initial).edges);
+  const initialFlow = useMemo(() => definitionToFlow(initial), [initial]);
+  const [nodes, setNodes] = useState<Node[]>(initialFlow.nodes);
+  const [edges, setEdges] = useState<Edge[]>(initialFlow.edges);
   const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
 
+  const replaceNodes = useCallback((updated: Node[]) => {
+    nodesRef.current = updated;
+    setNodes(updated);
+  }, []);
+  const replaceEdges = useCallback((updated: Edge[]) => {
+    edgesRef.current = updated;
+    setEdges(updated);
+  }, []);
   const notify = useCallback(
-    (updated: Node[]) => {
-      const labels = flowToNodes(updated);
-      onChange(labels);
-    },
+    (updatedNodes = nodesRef.current, updatedEdges = edgesRef.current) =>
+      onChange(flowToDefinition(updatedNodes, updatedEdges)),
     [onChange],
   );
-
-  const rebuildEdges = useCallback((updatedNodes: Node[]) => {
-    setEdges(buildLinearEdges(updatedNodes));
-  }, []);
-
-  const replaceNodes = useCallback((updatedNodes: Node[]) => {
-    nodesRef.current = updatedNodes;
-    setNodes(updatedNodes);
-  }, []);
-
-  const addNode = useCallback(
-    (label: string) => {
-      const updated = appendFlowNode(nodesRef.current, label);
-      replaceNodes(updated);
-      rebuildEdges(updated);
-      notify(updated);
+  const rebuildEdges = useCallback(
+    (updatedNodes: Node[]) => {
+      const updatedEdges = buildLinearEdges(updatedNodes);
+      replaceEdges(updatedEdges);
+      return updatedEdges;
     },
-    [notify, rebuildEdges, replaceNodes],
+    [replaceEdges],
   );
 
-  useImperativeHandle(ref, () => ({ addNode }), [addNode]);
+  const addNode = useCallback(
+    (type: WorkflowNodeType, label: string) => {
+      const meta = nodeMetaForType(type);
+      const existingTrigger =
+        meta.kind === "trigger"
+          ? nodesRef.current.find((node) => (node.data as CanvasNodeData).nodeKind === "trigger")
+          : undefined;
+      if (existingTrigger) {
+        const updated = nodesRef.current.map((node) =>
+          node.id === existingTrigger.id
+            ? { ...node, data: { label, nodeType: type, nodeKind: meta.kind, config: defaultConfigForType(type) } }
+            : node,
+        );
+        replaceNodes(updated);
+        notify(updated);
+        onSelectedNodeChange(existingTrigger.id);
+        return;
+      }
+      const node: Node = {
+        id: nextNodeId(nodesRef.current),
+        type: "workflow",
+        position: positionForNewNode(nodesRef.current),
+        data: { label, nodeType: type, nodeKind: meta.kind, config: defaultConfigForType(type) },
+      };
+      const updated = [...nodesRef.current, node];
+      replaceNodes(updated);
+      const updatedEdges = rebuildEdges(updated);
+      notify(updated, updatedEdges);
+      onSelectedNodeChange(node.id);
+    },
+    [notify, onSelectedNodeChange, rebuildEdges, replaceNodes],
+  );
+
+  const updateNodeConfig = useCallback(
+    (id: string, config: Record<string, unknown>) => {
+      const updated = nodesRef.current.map((node) =>
+        node.id === id ? { ...node, data: { ...node.data, config } } : node,
+      );
+      replaceNodes(updated);
+      notify(updated);
+    },
+    [notify, replaceNodes],
+  );
+
+  useImperativeHandle(ref, () => ({ addNode, updateNodeConfig }), [addNode, updateNodeConfig]);
 
   const handleRename = useCallback(
     (id: string, label: string) => {
-      const updated = renameFlowNode(nodesRef.current, id, label);
+      const updated = nodesRef.current.map((node) =>
+        node.id === id ? { ...node, data: { ...node.data, label } } : node,
+      );
       replaceNodes(updated);
       notify(updated);
     },
@@ -82,12 +169,13 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
 
   const handleDelete = useCallback(
     (id: string) => {
-      const filtered = nodesRef.current.filter((node) => node.id !== id);
-      replaceNodes(filtered);
-      rebuildEdges(filtered);
-      notify(filtered);
+      const updated = nodesRef.current.filter((node) => node.id !== id);
+      replaceNodes(updated);
+      const updatedEdges = rebuildEdges(updated);
+      notify(updated, updatedEdges);
+      onSelectedNodeChange(null);
     },
-    [rebuildEdges, notify, replaceNodes],
+    [notify, onSelectedNodeChange, rebuildEdges, replaceNodes],
   );
 
   const onNodesChange: OnNodesChange = useCallback(
@@ -95,23 +183,25 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
       const updated = applyNodeChanges(changes, nodesRef.current);
       replaceNodes(updated);
       if (shouldPersistNodeChanges(changes)) {
-        rebuildEdges(updated);
-        notify(updated);
+        const removed = changes.some((change) => change.type === "remove");
+        const updatedEdges = removed ? rebuildEdges(updated) : edgesRef.current;
+        notify(updated, updatedEdges);
       }
     },
-    [rebuildEdges, notify, replaceNodes],
+    [notify, rebuildEdges, replaceNodes],
   );
 
-  const onEdgesChange: OnEdgesChange = useCallback((changes) => {
-    setEdges((eds) => applyEdgeChanges(changes, eds));
-  }, []);
+  const onEdgesChange: OnEdgesChange = useCallback(
+    (changes) => {
+      const updated = applyEdgeChanges(changes, edgesRef.current);
+      replaceEdges(updated);
+      notify(nodesRef.current, updated);
+    },
+    [notify, replaceEdges],
+  );
 
   const nodesWithCallbacks = useMemo(
-    () =>
-      nodes.map((n) => ({
-        ...n,
-        data: { ...n.data, onRename: handleRename, onDelete: handleDelete },
-      })),
+    () => nodes.map((node) => ({ ...node, data: { ...node.data, onRename: handleRename, onDelete: handleDelete } })),
     [nodes, handleRename, handleDelete],
   );
 
@@ -122,6 +212,8 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={(_event, node) => onSelectedNodeChange(node.id)}
+        onPaneClick={() => onSelectedNodeChange(null)}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.3 }}

@@ -1,11 +1,15 @@
 import type { Node, NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
 import { Braces, Clock3, GitBranch, Globe2, Send, Sparkles } from "lucide-react";
+import type { WorkflowNodeType as WorkflowNodeDefinitionType, WorkflowNodeKind } from "@/lib/workflow-definition";
 
 export type WorkflowNodeData = {
   label: string;
   onRename: (id: string, label: string) => void;
   onDelete: (id: string) => void;
+  nodeType?: WorkflowNodeDefinitionType;
+  nodeKind?: WorkflowNodeKind;
+  config?: Record<string, unknown>;
 };
 
 export type WorkflowNodeType = Node<WorkflowNodeData, "workflow">;
@@ -18,7 +22,13 @@ const nodeLooks = [
   { keywords: ["analyze", "generate", "extract", "transform", "process"], tone: "action", icon: Braces },
 ] as const;
 
-function getNodeLook(label: string) {
+function getNodeLook(label: string, nodeType?: WorkflowNodeDefinitionType) {
+  if (nodeType && ["schedule", "webhook", "manual"].includes(nodeType)) return { tone: "trigger", icon: Clock3 };
+  if (nodeType && ["condition", "route", "review", "approve"].includes(nodeType))
+    return { tone: "logic", icon: GitBranch };
+  if (nodeType && ["publish", "notify", "sync", "export"].includes(nodeType)) return { tone: "output", icon: Send };
+  if (nodeType === "search") return { tone: "data", icon: Globe2 };
+  if (nodeType) return { tone: "action", icon: Braces };
   const normalized = label.toLowerCase();
   return (
     nodeLooks.find(({ keywords }) => keywords.some((keyword) => normalized.includes(keyword))) ?? {
@@ -29,11 +39,11 @@ function getNodeLook(label: string) {
 }
 
 export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowNodeType>) {
-  const { tone, icon: Icon } = getNodeLook(data.label);
+  const { tone, icon: Icon } = getNodeLook(data.label, data.nodeType);
 
   return (
     <div className={`workflow-canvas-node ${selected ? "selected" : ""}`} data-tone={tone}>
-      <Handle type="target" position={Position.Left} className="canvas-handle" />
+      {data.nodeKind !== "trigger" && <Handle type="target" position={Position.Left} className="canvas-handle" />}
       <div className="node-icon-shell" aria-hidden="true">
         <Icon size={25} strokeWidth={1.8} />
       </div>

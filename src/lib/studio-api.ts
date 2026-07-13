@@ -1,3 +1,4 @@
+import type { WorkflowDefinitionV1 } from "./workflow-definition";
 import type { ExecutionStatus, WorkflowStatus } from "./workflows";
 
 export type StudioWorkflow = {
@@ -10,6 +11,7 @@ export type StudioWorkflow = {
   success: number;
   updated: string;
   nodes: string[];
+  definition?: WorkflowDefinitionV1 | null;
 };
 export type StudioExecution = {
   id: string;

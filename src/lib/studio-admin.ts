@@ -1,15 +1,19 @@
+import type { WorkflowDefinitionV1 } from "./workflow-definition";
+
+type StudioWorkflowPayload = {
+  name: string;
+  description: string;
+  category: string;
+  status: string;
+  nodes: string[];
+  definition?: WorkflowDefinitionV1;
+};
+
 export type StudioAdminCommand =
   | { action: "pause" | "retry" | "cancel" | "approve"; id: string }
   | { action: "create-execution"; workflowId: string }
-  | {
-      action: "create-workflow";
-      payload: { name: string; description: string; category: string; status: string; nodes: string[] };
-    }
-  | {
-      action: "update-workflow";
-      id: string;
-      payload: { name: string; description: string; category: string; status: string; nodes: string[] };
-    };
+  | { action: "create-workflow"; payload: StudioWorkflowPayload }
+  | { action: "update-workflow"; id: string; payload: StudioWorkflowPayload };
 
 export function studioAdminTarget(command: StudioAdminCommand) {
   if (command.action === "create-execution")
