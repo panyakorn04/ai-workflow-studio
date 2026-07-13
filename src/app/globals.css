@@ -1,16 +1,18 @@
 @import "tailwindcss";
 :root {
-  --bg: #08090a;
-  --panel: #0f1012;
-  --surface: #141518;
-  --surface-2: #191a1e;
-  --border: rgba(255, 255, 255, 0.075);
-  --border-soft: rgba(255, 255, 255, 0.045);
-  --text: #f7f8f8;
-  --secondary: #c5c9d1;
-  --muted: #7d828c;
-  --dim: #565b64;
-  --accent: #7170ff;
+  --bg: #0d0e11;
+  --panel: #131418;
+  --surface: #1a1b20;
+  --surface-2: #212228;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --text: #f0f1f3;
+  --secondary: #bcc0c9;
+  --muted: #737884;
+  --dim: #4e525c;
+  --accent: #ff6d3a;
+  --accent-soft: rgba(255, 109, 58, 0.12);
+  --accent-glow: rgba(255, 109, 58, 0.22);
   --green: #2bc47d;
   --amber: #e7aa48;
   --red: #ee6b6e;
@@ -23,7 +25,7 @@ html {
 }
 body {
   margin: 0;
-  background: radial-gradient(circle at 70% -20%, rgba(113, 112, 255, 0.11), transparent 34%), var(--bg);
+  background: radial-gradient(circle at 70% -20%, rgba(255, 109, 58, 0.07), transparent 34%), var(--bg);
   color: var(--text);
   font-family: var(--font-geist), system-ui, sans-serif;
   font-feature-settings: "cv01", "ss03";
@@ -63,8 +65,8 @@ input {
   border-radius: 7px;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #7776ff, #4c4bb8);
-  box-shadow: 0 0 28px rgba(113, 112, 255, 0.28);
+  background: linear-gradient(145deg, #ff6d3a, #d45520);
+  box-shadow: 0 0 28px rgba(255, 109, 58, 0.28);
 }
 .workspace {
   margin: 14px 0 22px;
@@ -100,7 +102,7 @@ input {
   background: #252631;
   display: grid !important;
   place-items: center;
-  color: #bbbaff;
+  color: #ffb79b;
   font-size: 10px;
 }
 .sidebar nav p {
@@ -112,26 +114,31 @@ input {
   margin: 0 0 7px;
 }
 .nav-item {
-  height: 35px;
+  height: 32px;
   width: 100%;
   border: 0;
+  border-left: 2px solid transparent;
   background: transparent;
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: 0 6px 6px 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 10px 0 8px;
+  font-size: 11px;
   text-align: left;
   cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
 }
-.nav-item:hover,
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--secondary);
+}
 .nav-item.active {
-  background: rgba(255, 255, 255, 0.055);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--text);
-}
-.nav-item em {
+}.nav-item em {
   margin-left: auto;
   font-style: normal;
   background: #292a31;
@@ -216,9 +223,10 @@ input {
   justify-content: center;
 }
 .primary {
-  background: #5e6ad2;
+  background: #e0491a;
   color: white;
-  border-color: #6a74d9;
+  border-color: #ff6d3a;
+  font-weight: 510;
 }
 .metrics {
   display: grid;
@@ -362,17 +370,20 @@ input {
 .workflow {
   min-height: 102px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 74px 20px;
+  grid-template-columns: 34px minmax(0, 1fr) 74px 2px 20px;
   gap: 10px;
   padding: 14px;
   border-bottom: 1px solid var(--border-soft);
   align-items: start;
+  border-left: 2px solid transparent;
+  transition: border-color 0.15s;
 }
 .workflow:last-child {
-  border: 0;
+  border-bottom: 0;
 }
 .workflow:hover {
   background: rgba(255, 255, 255, 0.018);
+  border-left-color: var(--accent);
 }
 .workflow-icon {
   width: 31px;
@@ -575,7 +586,7 @@ input {
   display: block;
   width: 62%;
   height: 100%;
-  background: #7776eb;
+  background: var(--accent);
 }
 .approval {
   border: 1px solid rgba(231, 170, 72, 0.17);

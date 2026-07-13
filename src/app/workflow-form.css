@@ -225,8 +225,8 @@
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #7776ff, #4c4bb8);
-  box-shadow: 0 0 28px rgba(113, 112, 255, 0.28);
+  background: linear-gradient(145deg, #ff6d3a, #d45520);
+  box-shadow: 0 0 28px rgba(255, 109, 58, 0.28);
   margin-bottom: 4px;
 }
 .gate-card h1 {
