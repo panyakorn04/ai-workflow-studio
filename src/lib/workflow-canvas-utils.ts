@@ -10,18 +10,7 @@ export function nodesToFlow(labels: string[]): { nodes: Node[]; edges: Edge[] } 
     data: { label },
   }));
 
-  const edges: Edge[] = [];
-  for (let i = 0; i < labels.length - 1; i++) {
-    edges.push({
-      id: `edge-${i}-${i + 1}`,
-      source: `node-${i}`,
-      target: `node-${i + 1}`,
-      type: "smoothstep",
-      animated: false,
-    });
-  }
-
-  return { nodes, edges };
+  return { nodes, edges: buildLinearEdges(nodes) };
 }
 
 export function flowToNodes(nodes: Node[]): string[] {
@@ -40,6 +29,29 @@ export function positionForNewNode(existing: Node[]): { x: number; y: number } {
   if (existing.length === 0) return { x: 0, y: 0 };
   const last = existing.reduce((a, b) => (a.position.x > b.position.x ? a : b));
   return { x: last.position.x + NODE_SPACING, y: 0 };
+}
+
+export function appendFlowNode(existing: Node[], label: string): Node[] {
+  return [
+    ...existing,
+    {
+      id: nextNodeId(existing),
+      type: "workflow",
+      position: positionForNewNode(existing),
+      data: { label },
+    },
+  ];
+}
+
+export function buildLinearEdges(nodes: Node[]): Edge[] {
+  const sorted = [...nodes].sort((a, b) => a.position.x - b.position.x);
+  return sorted.slice(0, -1).map((node, index) => ({
+    id: `edge-${node.id}-${sorted[index + 1].id}`,
+    source: node.id,
+    target: sorted[index + 1].id,
+    type: "smoothstep",
+    animated: false,
+  }));
 }
 
 export function renameFlowNode(nodes: Node[], id: string, label: string): Node[] {

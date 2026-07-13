@@ -11,19 +11,33 @@ import {
   type OnNodesChange,
   ReactFlow,
 } from "@xyflow/react";
-import { useCallback, useMemo, useState } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import { WorkflowNode } from "@/app/_components/workflow-node";
-import { flowToNodes, nodesToFlow, renameFlowNode, shouldPersistNodeChanges } from "@/lib/workflow-canvas-utils";
+import {
+  appendFlowNode,
+  buildLinearEdges,
+  flowToNodes,
+  nodesToFlow,
+  renameFlowNode,
+  shouldPersistNodeChanges,
+} from "@/lib/workflow-canvas-utils";
 
 type Props = {
   initial: string[];
   onChange: (nodes: string[]) => void;
 };
 
+export type WorkflowEditorCanvasHandle = {
+  addNode: (label: string) => void;
+};
+
 const nodeTypes = { workflow: WorkflowNode };
 
-export function WorkflowEditorCanvas({ initial, onChange }: Props) {
+export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props>(function WorkflowEditorCanvas(
+  { initial, onChange },
+  ref,
+) {
   const [nodes, setNodes] = useState<Node[]>(() => nodesToFlow(initial).nodes);
   const [edges, setEdges] = useState<Edge[]>(() => nodesToFlow(initial).edges);
 
@@ -36,19 +50,22 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
   );
 
   const rebuildEdges = useCallback((updatedNodes: Node[]) => {
-    const sorted = [...updatedNodes].sort((a, b) => a.position.x - b.position.x);
-    const newEdges: Edge[] = [];
-    for (let i = 0; i < sorted.length - 1; i++) {
-      newEdges.push({
-        id: `edge-${sorted[i].id}-${sorted[i + 1].id}`,
-        source: sorted[i].id,
-        target: sorted[i + 1].id,
-        type: "smoothstep",
-        animated: false,
-      });
-    }
-    setEdges(newEdges);
+    setEdges(buildLinearEdges(updatedNodes));
   }, []);
+
+  const addNode = useCallback(
+    (label: string) => {
+      setNodes((current) => {
+        const updated = appendFlowNode(current, label);
+        rebuildEdges(updated);
+        notify(updated);
+        return updated;
+      });
+    },
+    [notify, rebuildEdges],
+  );
+
+  useImperativeHandle(ref, () => ({ addNode }), [addNode]);
 
   const handleRename = useCallback(
     (id: string, label: string) => {
@@ -65,7 +82,6 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
     (id: string) => {
       setNodes((nds) => {
         const filtered = nds.filter((n) => n.id !== id);
-        if (filtered.length === 0) return nds;
         rebuildEdges(filtered);
         notify(filtered);
         return filtered;
@@ -123,4 +139,4 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
       </ReactFlow>
     </div>
   );
-}
+});

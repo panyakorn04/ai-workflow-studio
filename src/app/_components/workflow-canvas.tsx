@@ -14,10 +14,10 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import {
+  appendFlowNode,
+  buildLinearEdges,
   flowToNodes,
-  nextNodeId,
   nodesToFlow,
-  positionForNewNode,
   renameFlowNode,
   shouldPersistNodeChanges,
 } from "@/lib/workflow-canvas-utils";
@@ -44,18 +44,7 @@ export function WorkflowCanvas({ initial, onChange }: Props) {
   );
 
   const rebuildEdges = useCallback((updatedNodes: Node[]) => {
-    const sorted = [...updatedNodes].sort((a, b) => a.position.x - b.position.x);
-    const newEdges: Edge[] = [];
-    for (let i = 0; i < sorted.length - 1; i++) {
-      newEdges.push({
-        id: `edge-${sorted[i].id}-${sorted[i + 1].id}`,
-        source: sorted[i].id,
-        target: sorted[i + 1].id,
-        type: "smoothstep",
-        animated: false,
-      });
-    }
-    setEdges(newEdges);
+    setEdges(buildLinearEdges(updatedNodes));
   }, []);
 
   const handleRename = useCallback(
@@ -73,7 +62,6 @@ export function WorkflowCanvas({ initial, onChange }: Props) {
     (id: string) => {
       setNodes((nds) => {
         const filtered = nds.filter((n) => n.id !== id);
-        if (filtered.length === 0) return nds;
         rebuildEdges(filtered);
         notify(filtered);
         return filtered;
@@ -85,15 +73,7 @@ export function WorkflowCanvas({ initial, onChange }: Props) {
   const handleAddNode = useCallback(
     (label: string) => {
       setNodes((nds) => {
-        const id = nextNodeId(nds);
-        const pos = positionForNewNode(nds);
-        const newNode: Node = {
-          id,
-          type: "workflow",
-          position: pos,
-          data: { label },
-        };
-        const updated = [...nds, newNode];
+        const updated = appendFlowNode(nds, label);
         rebuildEdges(updated);
         notify(updated);
         return updated;

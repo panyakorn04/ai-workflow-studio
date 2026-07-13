@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { Node } from "@xyflow/react";
 import {
+  appendFlowNode,
+  buildLinearEdges,
   flowToNodes,
   nextNodeId,
   nodesToFlow,
@@ -34,6 +36,10 @@ describe("nodesToFlow", () => {
 });
 
 describe("flowToNodes", () => {
+  test("serializes an empty canvas", () => {
+    expect(flowToNodes([])).toEqual([]);
+  });
+
   test("extracts labels sorted by x position", () => {
     const nodes: Node[] = [
       { id: "node-1", position: { x: 200, y: 0 }, data: { label: "B" } },
@@ -80,6 +86,29 @@ describe("positionForNewNode", () => {
 });
 
 describe("canvas persistence helpers", () => {
+  test("appends a node after the right-most node with a unique id", () => {
+    const existing = nodesToFlow(["Trigger", "Process"]).nodes;
+    const updated = appendFlowNode(existing, "Publish");
+
+    expect(updated).toHaveLength(3);
+    expect(updated[2].id).toBe("node-2");
+    expect(updated[2].position).toEqual({ x: 400, y: 0 });
+    expect((updated[2].data as { label: string }).label).toBe("Publish");
+  });
+
+  test("builds edges from horizontal node order", () => {
+    const nodes = [
+      { id: "node-b", position: { x: 200, y: 0 }, data: {} },
+      { id: "node-a", position: { x: 0, y: 0 }, data: {} },
+    ] as Node[];
+
+    expect(buildLinearEdges(nodes)).toEqual([
+      expect.objectContaining({ source: "node-a", target: "node-b", type: "smoothstep" }),
+    ]);
+    expect(buildLinearEdges([])).toEqual([]);
+    expect(buildLinearEdges(nodesToFlow(["Only"]).nodes)).toEqual([]);
+  });
+
   test("renames a node without mutating the original collection", () => {
     const nodes = [{ id: "node-0", position: { x: 0, y: 0 }, data: { label: "Old" } }] as Node[];
     const updated = renameFlowNode(nodes, "node-0", "New");

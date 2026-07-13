@@ -38,7 +38,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowNodeType>
         <Icon size={25} strokeWidth={1.8} />
       </div>
       <input
-        className="node-label-input"
+        className="node-label-input nodrag"
         aria-label="Node name"
         value={data.label}
         onChange={(e) => data.onRename(id, e.target.value)}
@@ -47,7 +47,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowNodeType>
       />
       <button
         type="button"
-        className="node-delete-btn"
+        className="node-delete-btn nodrag"
         aria-label={`Delete ${data.label}`}
         onClick={() => data.onDelete(id)}
       >

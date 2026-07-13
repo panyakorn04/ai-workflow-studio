@@ -105,6 +105,12 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-tone) 65%, transparent);
 }
 
+.node-label-input:focus-visible,
+.node-delete-btn:focus-visible {
+  outline: 2px solid var(--node-tone);
+  outline-offset: 2px;
+}
+
 .node-delete-btn {
   position: absolute;
   top: -7px;

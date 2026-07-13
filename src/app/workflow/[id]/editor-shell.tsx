@@ -1,17 +1,25 @@
 "use client";
 import { ArrowLeft, Eye, MoreHorizontal, Play, Save, Settings, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { StudioWorkflow } from "@/lib/studio-api";
-import { WorkflowEditorCanvas } from "./editor-canvas";
+import { WorkflowEditorCanvas, type WorkflowEditorCanvasHandle } from "./editor-canvas";
 import "../editor.css";
 
 type Props = {
   workflow: StudioWorkflow | null;
 };
 
+const nodeGroups = [
+  { label: "Triggers", tone: "trigger", nodes: ["Webhook", "Schedule", "Manual"] },
+  { label: "Actions", tone: "action", nodes: ["Search", "Analyze", "Generate", "Extract", "Transform"] },
+  { label: "Logic", tone: "logic", nodes: ["Review", "Approve", "Condition", "Route"] },
+  { label: "Output", tone: "output", nodes: ["Publish", "Notify", "Sync", "Export"] },
+] as const;
+
 export function WorkflowEditorShell({ workflow }: Props) {
   const router = useRouter();
+  const canvasRef = useRef<WorkflowEditorCanvasHandle>(null);
   const isNew = !workflow;
 
   const [name, setName] = useState(workflow?.name ?? "Untitled workflow");
@@ -21,6 +29,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
   const [saving, setSaving] = useState(false);
 
   const goBack = useCallback(() => router.push("/"), [router]);
+  const addNode = useCallback((label: string) => canvasRef.current?.addNode(label), []);
 
   const handleSave = useCallback(async () => {
     if (!name.trim()) return;
@@ -93,42 +102,17 @@ export function WorkflowEditorShell({ workflow }: Props) {
       {/* Body: left panel + canvas */}
       <div className="editor-body">
         <aside className="editor-node-panel">
-          <div className="editor-panel-section">
-            <p className="editor-panel-label">Triggers</p>
-            {["Webhook", "Schedule", "Manual"].map((n) => (
-              <button key={n} type="button" className="editor-node-chip" onClick={() => setNodes((nds) => [...nds, n])}>
-                <span className="chip-dot trigger" />
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="editor-panel-section">
-            <p className="editor-panel-label">Actions</p>
-            {["Search", "Analyze", "Generate", "Extract", "Transform"].map((n) => (
-              <button key={n} type="button" className="editor-node-chip" onClick={() => setNodes((nds) => [...nds, n])}>
-                <span className="chip-dot action" />
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="editor-panel-section">
-            <p className="editor-panel-label">Logic</p>
-            {["Review", "Approve", "Condition", "Route"].map((n) => (
-              <button key={n} type="button" className="editor-node-chip" onClick={() => setNodes((nds) => [...nds, n])}>
-                <span className="chip-dot logic" />
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="editor-panel-section">
-            <p className="editor-panel-label">Output</p>
-            {["Publish", "Notify", "Sync", "Export"].map((n) => (
-              <button key={n} type="button" className="editor-node-chip" onClick={() => setNodes((nds) => [...nds, n])}>
-                <span className="chip-dot output" />
-                {n}
-              </button>
-            ))}
-          </div>
+          {nodeGroups.map((group) => (
+            <div className="editor-panel-section" key={group.label}>
+              <p className="editor-panel-label">{group.label}</p>
+              {group.nodes.map((node) => (
+                <button key={node} type="button" className="editor-node-chip" onClick={() => addNode(node)}>
+                  <span className={`chip-dot ${group.tone}`} />
+                  {node}
+                </button>
+              ))}
+            </div>
+          ))}
         </aside>
 
         <div className="editor-canvas-area">
@@ -142,7 +126,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
             <option value="active">Active</option>
             <option value="paused">Paused</option>
           </select>
-          <WorkflowEditorCanvas initial={nodes} onChange={setNodes} />
+          <WorkflowEditorCanvas ref={canvasRef} initial={nodes} onChange={setNodes} />
         </div>
       </div>
     </div>
