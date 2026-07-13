@@ -51,10 +51,15 @@ const nodeGroups: Array<{ label: string; tone: string; nodes: Array<{ label: str
 function definitionIssues(definition: WorkflowDefinitionV1) {
   const issues: string[] = [];
   if (definition.nodes.length === 0) issues.push("Add at least one node.");
-  const ordered = [...definition.nodes].sort((a, b) => a.position.x - b.position.x);
   const triggers = definition.nodes.filter((node) => node.kind === "trigger");
-  if (triggers.length !== 1) issues.push("Workflow must contain exactly one trigger.");
-  if (ordered[0] && ordered[0].kind !== "trigger") issues.push("The first node must be a trigger.");
+  const steps = definition.nodes.filter((node) => node.kind !== "trigger");
+  if (triggers.length === 0) issues.push("Workflow must contain at least one trigger.");
+  if (steps.length > 0) {
+    const firstStepX = Math.min(...steps.map((node) => node.position.x));
+    if (triggers.some((node) => node.position.x >= firstStepX)) {
+      issues.push("All triggers must be positioned before workflow steps.");
+    }
+  }
   for (const node of definition.nodes) {
     if (node.type === "schedule") issues.push(...validateScheduleConfig(node.config));
   }
@@ -263,6 +268,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
         {detailState === "ready" && (
           <NodeInspector
             node={selectedNode}
+            workflowId={workflow?.id}
             onClose={() => setSelectedNodeID(null)}
             onConfigChange={updateSelectedConfig}
           />

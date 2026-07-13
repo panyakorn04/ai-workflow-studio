@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     "cancel",
     "approve",
     "create-execution",
+    "execute-node",
     "create-workflow",
     "update-workflow",
   ]);
@@ -29,7 +30,14 @@ export async function POST(request: Request) {
     !allowed.has(command.action) ||
     ("id" in command && typeof command.id !== "string") ||
     (command.action === "create-execution" &&
-      (!("workflowId" in command) || typeof command.workflowId !== "string" || !command.workflowId.trim()))
+      (!("workflowId" in command) || typeof command.workflowId !== "string" || !command.workflowId.trim())) ||
+    (command.action === "execute-node" &&
+      (!("workflowId" in command) ||
+        typeof command.workflowId !== "string" ||
+        !command.workflowId.trim() ||
+        !("nodeId" in command) ||
+        typeof command.nodeId !== "string" ||
+        !command.nodeId.trim()))
   ) {
     return NextResponse.json({ ok: false, error: { message: "Unsupported command." } }, { status: 400 });
   }

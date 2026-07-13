@@ -1,6 +1,6 @@
 import type { Node, NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { Braces, Clock3, GitBranch, Globe2, Send, Sparkles } from "lucide-react";
+import { Braces, Clock3, GitBranch, Globe2, MousePointerClick, Send, Sparkles } from "lucide-react";
 import type { WorkflowNodeType as WorkflowNodeDefinitionType, WorkflowNodeKind } from "@/lib/workflow-definition";
 
 export type WorkflowNodeData = {
@@ -23,7 +23,8 @@ const nodeLooks = [
 ] as const;
 
 function getNodeLook(label: string, nodeType?: WorkflowNodeDefinitionType) {
-  if (nodeType && ["schedule", "webhook", "manual"].includes(nodeType)) return { tone: "trigger", icon: Clock3 };
+  if (nodeType === "manual") return { tone: "trigger", icon: MousePointerClick };
+  if (nodeType && ["schedule", "webhook"].includes(nodeType)) return { tone: "trigger", icon: Clock3 };
   if (nodeType && ["condition", "route", "review", "approve"].includes(nodeType))
     return { tone: "logic", icon: GitBranch };
   if (nodeType && ["publish", "notify", "sync", "export"].includes(nodeType)) return { tone: "output", icon: Send };

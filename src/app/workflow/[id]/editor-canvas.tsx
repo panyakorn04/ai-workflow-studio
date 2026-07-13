@@ -13,7 +13,7 @@ import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState
 import "@xyflow/react/dist/style.css";
 import { WorkflowNode } from "@/app/_components/workflow-node";
 import {
-  buildLinearEdges,
+  buildTriggerGraphEdges,
   nextNodeId,
   positionForNewNode,
   shouldPersistNodeChanges,
@@ -108,7 +108,7 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
   );
   const rebuildEdges = useCallback(
     (updatedNodes: Node[]) => {
-      const updatedEdges = buildLinearEdges(updatedNodes);
+      const updatedEdges = buildTriggerGraphEdges(updatedNodes);
       replaceEdges(updatedEdges);
       return updatedEdges;
     },
@@ -118,25 +118,13 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
   const addNode = useCallback(
     (type: WorkflowNodeType, label: string) => {
       const meta = nodeMetaForType(type);
-      const existingTrigger =
-        meta.kind === "trigger"
-          ? nodesRef.current.find((node) => (node.data as CanvasNodeData).nodeKind === "trigger")
-          : undefined;
-      if (existingTrigger) {
-        const updated = nodesRef.current.map((node) =>
-          node.id === existingTrigger.id
-            ? { ...node, data: { label, nodeType: type, nodeKind: meta.kind, config: defaultConfigForType(type) } }
-            : node,
-        );
-        replaceNodes(updated);
-        notify(updated);
-        onSelectedNodeChange(existingTrigger.id);
-        return;
-      }
+      const triggerCount = nodesRef.current.filter(
+        (node) => (node.data as CanvasNodeData).nodeKind === "trigger",
+      ).length;
       const node: Node = {
         id: nextNodeId(nodesRef.current),
         type: "workflow",
-        position: positionForNewNode(nodesRef.current),
+        position: meta.kind === "trigger" ? { x: 0, y: triggerCount * 140 } : positionForNewNode(nodesRef.current),
         data: { label, nodeType: type, nodeKind: meta.kind, config: defaultConfigForType(type) },
       };
       const updated = [...nodesRef.current, node];
@@ -188,8 +176,7 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
       const updated = applyNodeChanges(changes, nodesRef.current);
       replaceNodes(updated);
       if (shouldPersistNodeChanges(changes)) {
-        const removed = changes.some((change) => change.type === "remove");
-        const updatedEdges = removed ? rebuildEdges(updated) : edgesRef.current;
+        const updatedEdges = rebuildEdges(updated);
         notify(updated, updatedEdges);
       }
     },

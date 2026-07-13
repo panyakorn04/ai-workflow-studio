@@ -24,4 +24,11 @@ describe("studio admin command mapping", () => {
       body: { workflowId: "wf/1" },
     });
   });
+  test("maps manual node execution with encoded workflow and node IDs", () => {
+    expect(studioAdminTarget({ action: "execute-node", workflowId: "wf/1", nodeId: "manual 1" })).toEqual({
+      method: "POST",
+      path: "/api/admin/studio/workflows/wf%2F1/nodes/manual%201/execute",
+      body: undefined,
+    });
+  });
 });

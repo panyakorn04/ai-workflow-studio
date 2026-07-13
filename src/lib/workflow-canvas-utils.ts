@@ -57,6 +57,33 @@ export function buildLinearEdges(nodes: Node[]): Edge[] {
   }));
 }
 
+function graphEdge(source: Node, target: Node): Edge {
+  return {
+    id: `edge-${source.id}-${target.id}`,
+    source: source.id,
+    target: target.id,
+    type: "smoothstep",
+    animated: false,
+    selectable: false,
+    deletable: false,
+    focusable: false,
+  };
+}
+
+export function buildTriggerGraphEdges(nodes: Node[]): Edge[] {
+  const triggers = nodes
+    .filter((node) => (node.data as { nodeKind?: string }).nodeKind === "trigger")
+    .sort((a, b) => a.position.y - b.position.y);
+  const steps = nodes
+    .filter((node) => (node.data as { nodeKind?: string }).nodeKind !== "trigger")
+    .sort((a, b) => a.position.x - b.position.x);
+  if (steps.length === 0) return [];
+  return [
+    ...triggers.map((trigger) => graphEdge(trigger, steps[0])),
+    ...steps.slice(0, -1).map((step, index) => graphEdge(step, steps[index + 1])),
+  ];
+}
+
 export function renameFlowNode(nodes: Node[], id: string, label: string): Node[] {
   return nodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, label } } : node));
 }

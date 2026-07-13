@@ -1,5 +1,6 @@
 "use client";
-import { Clock3, Settings2, X } from "lucide-react";
+import { Braces, Clock3, Play, Settings2, X } from "lucide-react";
+import { useState } from "react";
 import {
   defaultScheduleConfig,
   describeSchedule,
@@ -12,10 +13,12 @@ const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function NodeInspector({
   node,
+  workflowId,
   onClose,
   onConfigChange,
 }: {
   node: WorkflowNodeDefinition | null;
+  workflowId?: string;
   onClose: () => void;
   onConfigChange: (config: Record<string, unknown>) => void;
 }) {
@@ -37,10 +40,7 @@ export function NodeInspector({
       {node.type === "schedule" ? (
         <ScheduleTriggerForm config={node.config} onChange={onConfigChange} />
       ) : node.type === "manual" ? (
-        <div className="inspector-empty">
-          <strong>Manual trigger</strong>
-          <p>This workflow runs only when you click Run.</p>
-        </div>
+        <ManualTriggerPanel key={node.id} node={node} workflowId={workflowId} />
       ) : node.type === "webhook" ? (
         <div className="inspector-empty">
           <strong>Webhook trigger</strong>
@@ -53,6 +53,67 @@ export function NodeInspector({
         </div>
       )}
     </aside>
+  );
+}
+
+function ManualTriggerPanel({ node, workflowId }: { node: WorkflowNodeDefinition; workflowId?: string }) {
+  const [output, setOutput] = useState<unknown>(null);
+  const [error, setError] = useState("");
+  const [executing, setExecuting] = useState(false);
+
+  const execute = async () => {
+    if (!workflowId) {
+      setError("Save this workflow before executing the Manual Trigger.");
+      return;
+    }
+    setExecuting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "execute-node", workflowId, nodeId: node.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Execute step failed.");
+      setOutput(payload.data.output);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Execute step failed.");
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  return (
+    <div className="manual-trigger-panel">
+      <button type="button" className="manual-execute" onClick={execute} disabled={executing}>
+        <Play size={14} /> {executing ? "Executing…" : "Execute step"}
+      </button>
+      <div className="manual-trigger-note">
+        This node starts the workflow when you test it manually. It does not require parameters.
+      </div>
+      <div className="manual-output-header">
+        <span>
+          <Braces size={14} /> OUTPUT
+        </span>
+        {output ? <small>JSON</small> : null}
+      </div>
+      {error ? (
+        <div className="manual-output-error" role="alert">
+          {error}
+        </div>
+      ) : output ? (
+        <pre className="manual-output-json">{JSON.stringify(output, null, 2)}</pre>
+      ) : (
+        <div className="manual-output-empty">
+          <Braces size={22} />
+          <strong>No trigger output</strong>
+          <button type="button" onClick={execute} disabled={executing}>
+            Test this trigger
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

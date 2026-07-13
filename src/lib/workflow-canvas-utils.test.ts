@@ -3,6 +3,7 @@ import type { Node } from "@xyflow/react";
 import {
   appendFlowNode,
   buildLinearEdges,
+  buildTriggerGraphEdges,
   flowToNodes,
   nextNodeId,
   nodesToFlow,
@@ -114,6 +115,21 @@ describe("canvas persistence helpers", () => {
     ]);
     expect(buildLinearEdges([])).toEqual([]);
     expect(buildLinearEdges(nodesToFlow(["Only"]).nodes)).toEqual([]);
+  });
+
+  test("builds a shared action chain from multiple trigger roots", () => {
+    const nodes = [
+      { id: "manual", position: { x: 0, y: 140 }, data: { nodeKind: "trigger" } },
+      { id: "schedule", position: { x: 0, y: 0 }, data: { nodeKind: "trigger" } },
+      { id: "transform", position: { x: 200, y: 0 }, data: { nodeKind: "action" } },
+      { id: "publish", position: { x: 400, y: 0 }, data: { nodeKind: "output" } },
+    ] as Node[];
+
+    expect(buildTriggerGraphEdges(nodes).map(({ source, target }) => `${source}->${target}`)).toEqual([
+      "schedule->transform",
+      "manual->transform",
+      "transform->publish",
+    ]);
   });
 
   test("renames a node without mutating the original collection", () => {

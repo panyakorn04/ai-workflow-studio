@@ -177,7 +177,9 @@ export function parseWorkflowDefinition(value: unknown): WorkflowDefinitionV1 {
 }
 
 export function workflowLabels(definition: WorkflowDefinitionV1): string[] {
-  return [...definition.nodes].sort((a, b) => a.position.x - b.position.x).map((node) => node.label);
+  return [...definition.nodes]
+    .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+    .map((node) => node.label);
 }
 
 function validTimezone(timezone: string) {
