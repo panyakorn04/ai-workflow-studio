@@ -70,6 +70,7 @@ function definitionIssues(definition: WorkflowDefinitionV1) {
 export function WorkflowEditorShell({ workflow }: Props) {
   const router = useRouter();
   const canvasRef = useRef<WorkflowEditorCanvasHandle>(null);
+  const editRevisionRef = useRef(0);
   const isNew = !workflow;
   const fallbackLabels = workflow?.nodes?.length ? workflow.nodes : ["Schedule", "Transform"];
   const [name, setName] = useState(workflow?.name ?? "Untitled workflow");
@@ -103,6 +104,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
           const loaded = parseWorkflowDefinition(payload.data.definition);
           setDefinition(loaded);
           setDefinitionDirty(false);
+          editRevisionRef.current = 0;
           setSelectedNodeID(null);
           setCanvasSeed((seed) => seed + 1);
         }
@@ -131,7 +133,18 @@ export function WorkflowEditorShell({ workflow }: Props) {
     [selectedNodeID],
   );
   const handleDefinitionChange = useCallback((updated: WorkflowDefinitionV1) => {
+    editRevisionRef.current += 1;
     setDefinition(updated);
+    setDefinitionDirty(true);
+  }, []);
+  const handleNameChange = useCallback((value: string) => {
+    editRevisionRef.current += 1;
+    setName(value);
+    setDefinitionDirty(true);
+  }, []);
+  const handleStatusChange = useCallback((value: StudioWorkflow["status"]) => {
+    editRevisionRef.current += 1;
+    setStatus(value);
     setDefinitionDirty(true);
   }, []);
 
@@ -150,6 +163,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
     }
     setSaving(true);
     setSaveError("");
+    const savedRevision = editRevisionRef.current;
     try {
       const payload = {
         name: name.trim(),
@@ -169,7 +183,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error?.message ?? "Save failed");
-      setDefinitionDirty(false);
+      if (editRevisionRef.current === savedRevision) setDefinitionDirty(false);
       if (isNew) router.push(`/workflow/${data.data.id}`);
       router.refresh();
     } catch (error) {
@@ -189,7 +203,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
           <input
             className="editor-name-input"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => handleNameChange(event.target.value)}
             placeholder="Untitled workflow"
             maxLength={120}
           />
@@ -257,7 +271,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
           <select
             className="editor-description-input"
             value={status}
-            onChange={(event) => setStatus(event.target.value as StudioWorkflow["status"])}
+            onChange={(event) => handleStatusChange(event.target.value as StudioWorkflow["status"])}
           >
             <option value="draft">Draft</option>
             <option value="active">Active</option>
