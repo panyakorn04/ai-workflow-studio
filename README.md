@@ -24,6 +24,7 @@ A production-oriented control plane for agentic workflows. This repository is th
 **Workflow CRUD**
 - Server-side integration with `portfolio-backend-2026` via `GET /api/studio/overview`
 - Authenticated workflow creation, editing, and execution via admin BFF
+- **Visual node editor** — drag-and-drop canvas with React Flow, inline rename, node palette
 - Execution controls: pause, retry, cancel, approve with RBAC (admin/editor)
 - Searchable workflow inventory, status filters, and cost/success/latency signals
 - Validated API envelope with safe local fallback when backend is unavailable
