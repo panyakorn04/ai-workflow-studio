@@ -290,3 +290,33 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Wide modal for canvas editor */
+.workflow-modal.wide {
+  width: min(900px, 95vw);
+}
+
+/* Canvas section inside form */
+.canvas-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.canvas-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.canvas-label small {
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.workflow-modal.wide .workflow-canvas-container {
+  min-height: 320px;
+}
+
+.workflow-modal.wide .canvas-flow {
+  min-height: 260px;
+}

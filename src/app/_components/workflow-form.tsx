@@ -2,6 +2,8 @@
 import { useState } from "react";
 import type { StudioAdminCommand } from "@/lib/studio-admin";
 import type { StudioWorkflow } from "@/lib/studio-api";
+import { WorkflowCanvas } from "./workflow-canvas";
+import "../workflow-canvas.css";
 
 export function WorkflowForm({
   workflow,
@@ -18,7 +20,7 @@ export function WorkflowForm({
   const [description, setDescription] = useState(workflow?.description ?? "");
   const [category, setCategory] = useState(workflow?.category ?? "Operations");
   const [status, setStatus] = useState(workflow?.status ?? "draft");
-  const [nodes, setNodes] = useState(() => workflow?.nodes.join(", ") ?? "Trigger, Process, Review");
+  const [nodeLabels, setNodeLabels] = useState<string[]>(() => workflow?.nodes ?? ["Trigger", "Process", "Review"]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const payload = {
@@ -26,10 +28,7 @@ export function WorkflowForm({
       description: description.trim(),
       category: category.trim(),
       status,
-      nodes: nodes
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean),
+      nodes: nodeLabels,
     };
     const succeeded = workflow
       ? await onSubmit({ action: "update-workflow", id: workflow.id, payload })
@@ -45,7 +44,12 @@ export function WorkflowForm({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <section className="workflow-modal" role="dialog" aria-modal="true" aria-labelledby="workflow-form-title">
+      <section
+        className={`workflow-modal ${workflow ? "wide" : "wide"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="workflow-form-title"
+      >
         <header>
           <div>
             <p>WORKFLOW DEFINITION</p>
@@ -84,10 +88,12 @@ export function WorkflowForm({
               </select>
             </label>
           </div>
-          <label>
-            Nodes <small>Comma-separated, maximum 30</small>
-            <input required value={nodes} onChange={(e) => setNodes(e.target.value)} />
-          </label>
+          <div className="canvas-section">
+            <div className="canvas-label">
+              Nodes <small>Click a preset or type a custom name</small>
+            </div>
+            <WorkflowCanvas initial={nodeLabels} onChange={setNodeLabels} />
+          </div>
           <footer>
             <button type="button" onClick={onClose}>
               Cancel

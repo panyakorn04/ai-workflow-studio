@@ -1,0 +1,73 @@
+import { describe, expect, test } from "bun:test";
+import type { Node } from "@xyflow/react";
+import { flowToNodes, nextNodeId, nodesToFlow, positionForNewNode } from "./workflow-canvas-utils";
+
+describe("nodesToFlow", () => {
+  test("converts labels to nodes and edges", () => {
+    const { nodes, edges } = nodesToFlow(["Search", "Analyze", "Publish"]);
+    expect(nodes).toHaveLength(3);
+    expect((nodes[0].data as { label: string }).label).toBe("Search");
+    expect((nodes[2].data as { label: string }).label).toBe("Publish");
+    expect(edges).toHaveLength(2);
+    expect(edges[0].source).toBe("node-0");
+    expect(edges[0].target).toBe("node-1");
+  });
+
+  test("returns empty arrays for empty input", () => {
+    const { nodes, edges } = nodesToFlow([]);
+    expect(nodes).toHaveLength(0);
+    expect(edges).toHaveLength(0);
+  });
+
+  test("no edges for single node", () => {
+    const { nodes, edges } = nodesToFlow(["Only"]);
+    expect(nodes).toHaveLength(1);
+    expect(edges).toHaveLength(0);
+  });
+});
+
+describe("flowToNodes", () => {
+  test("extracts labels sorted by x position", () => {
+    const nodes: Node[] = [
+      { id: "node-1", position: { x: 200, y: 0 }, data: { label: "B" } },
+      { id: "node-0", position: { x: 0, y: 0 }, data: { label: "A" } },
+    ];
+    expect(flowToNodes(nodes)).toEqual(["A", "B"]);
+  });
+
+  test("filters empty labels", () => {
+    const nodes: Node[] = [
+      { id: "node-0", position: { x: 0, y: 0 }, data: { label: "" } },
+      { id: "node-1", position: { x: 200, y: 0 }, data: { label: "Ok" } },
+    ];
+    expect(flowToNodes(nodes)).toEqual(["Ok"]);
+  });
+});
+
+describe("nextNodeId", () => {
+  test("returns node-0 for empty", () => {
+    expect(nextNodeId([])).toBe("node-0");
+  });
+
+  test("returns next after max", () => {
+    const nodes = [
+      { id: "node-0", position: { x: 0, y: 0 }, data: {} },
+      { id: "node-5", position: { x: 200, y: 0 }, data: {} },
+    ];
+    expect(nextNodeId(nodes as Node[])).toBe("node-6");
+  });
+});
+
+describe("positionForNewNode", () => {
+  test("returns origin for empty", () => {
+    expect(positionForNewNode([])).toEqual({ x: 0, y: 0 });
+  });
+
+  test("returns offset from last node", () => {
+    const nodes = [
+      { id: "node-0", position: { x: 0, y: 0 }, data: {} },
+      { id: "node-1", position: { x: 200, y: 0 }, data: {} },
+    ];
+    expect(positionForNewNode(nodes as Node[])).toEqual({ x: 400, y: 0 });
+  });
+});
