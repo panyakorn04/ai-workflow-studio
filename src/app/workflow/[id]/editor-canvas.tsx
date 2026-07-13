@@ -11,7 +11,7 @@ import {
   type OnNodesChange,
   ReactFlow,
 } from "@xyflow/react";
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import { WorkflowNode } from "@/app/_components/workflow-node";
 import {
@@ -40,6 +40,7 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
 ) {
   const [nodes, setNodes] = useState<Node[]>(() => nodesToFlow(initial).nodes);
   const [edges, setEdges] = useState<Edge[]>(() => nodesToFlow(initial).edges);
+  const nodesRef = useRef(nodes);
 
   const notify = useCallback(
     (updated: Node[]) => {
@@ -53,55 +54,52 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
     setEdges(buildLinearEdges(updatedNodes));
   }, []);
 
+  const replaceNodes = useCallback((updatedNodes: Node[]) => {
+    nodesRef.current = updatedNodes;
+    setNodes(updatedNodes);
+  }, []);
+
   const addNode = useCallback(
     (label: string) => {
-      setNodes((current) => {
-        const updated = appendFlowNode(current, label);
-        rebuildEdges(updated);
-        notify(updated);
-        return updated;
-      });
+      const updated = appendFlowNode(nodesRef.current, label);
+      replaceNodes(updated);
+      rebuildEdges(updated);
+      notify(updated);
     },
-    [notify, rebuildEdges],
+    [notify, rebuildEdges, replaceNodes],
   );
 
   useImperativeHandle(ref, () => ({ addNode }), [addNode]);
 
   const handleRename = useCallback(
     (id: string, label: string) => {
-      setNodes((nds) => {
-        const updated = renameFlowNode(nds, id, label);
-        notify(updated);
-        return updated;
-      });
+      const updated = renameFlowNode(nodesRef.current, id, label);
+      replaceNodes(updated);
+      notify(updated);
     },
-    [notify],
+    [notify, replaceNodes],
   );
 
   const handleDelete = useCallback(
     (id: string) => {
-      setNodes((nds) => {
-        const filtered = nds.filter((n) => n.id !== id);
-        rebuildEdges(filtered);
-        notify(filtered);
-        return filtered;
-      });
+      const filtered = nodesRef.current.filter((node) => node.id !== id);
+      replaceNodes(filtered);
+      rebuildEdges(filtered);
+      notify(filtered);
     },
-    [rebuildEdges, notify],
+    [rebuildEdges, notify, replaceNodes],
   );
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      setNodes((nds) => {
-        const updated = applyNodeChanges(changes, nds);
-        if (shouldPersistNodeChanges(changes)) {
-          rebuildEdges(updated);
-          notify(updated);
-        }
-        return updated;
-      });
+      const updated = applyNodeChanges(changes, nodesRef.current);
+      replaceNodes(updated);
+      if (shouldPersistNodeChanges(changes)) {
+        rebuildEdges(updated);
+        notify(updated);
+      }
     },
-    [rebuildEdges, notify],
+    [rebuildEdges, notify, replaceNodes],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback((changes) => {

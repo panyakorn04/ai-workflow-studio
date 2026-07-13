@@ -11,7 +11,7 @@ import {
   type OnNodesChange,
   ReactFlow,
 } from "@xyflow/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import {
   appendFlowNode,
@@ -34,6 +34,7 @@ const nodeTypes = { workflow: WorkflowNode };
 export function WorkflowCanvas({ initial, onChange }: Props) {
   const [nodes, setNodes] = useState<Node[]>(() => nodesToFlow(initial).nodes);
   const [edges, setEdges] = useState<Edge[]>(() => nodesToFlow(initial).edges);
+  const nodesRef = useRef(nodes);
 
   const notify = useCallback(
     (updated: Node[]) => {
@@ -47,53 +48,50 @@ export function WorkflowCanvas({ initial, onChange }: Props) {
     setEdges(buildLinearEdges(updatedNodes));
   }, []);
 
+  const replaceNodes = useCallback((updatedNodes: Node[]) => {
+    nodesRef.current = updatedNodes;
+    setNodes(updatedNodes);
+  }, []);
+
   const handleRename = useCallback(
     (id: string, label: string) => {
-      setNodes((nds) => {
-        const updated = renameFlowNode(nds, id, label);
-        notify(updated);
-        return updated;
-      });
+      const updated = renameFlowNode(nodesRef.current, id, label);
+      replaceNodes(updated);
+      notify(updated);
     },
-    [notify],
+    [notify, replaceNodes],
   );
 
   const handleDelete = useCallback(
     (id: string) => {
-      setNodes((nds) => {
-        const filtered = nds.filter((n) => n.id !== id);
-        rebuildEdges(filtered);
-        notify(filtered);
-        return filtered;
-      });
+      const filtered = nodesRef.current.filter((node) => node.id !== id);
+      replaceNodes(filtered);
+      rebuildEdges(filtered);
+      notify(filtered);
     },
-    [rebuildEdges, notify],
+    [rebuildEdges, notify, replaceNodes],
   );
 
   const handleAddNode = useCallback(
     (label: string) => {
-      setNodes((nds) => {
-        const updated = appendFlowNode(nds, label);
-        rebuildEdges(updated);
-        notify(updated);
-        return updated;
-      });
+      const updated = appendFlowNode(nodesRef.current, label);
+      replaceNodes(updated);
+      rebuildEdges(updated);
+      notify(updated);
     },
-    [rebuildEdges, notify],
+    [rebuildEdges, notify, replaceNodes],
   );
 
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      setNodes((nds) => {
-        const updated = applyNodeChanges(changes, nds);
-        if (shouldPersistNodeChanges(changes)) {
-          rebuildEdges(updated);
-          notify(updated);
-        }
-        return updated;
-      });
+      const updated = applyNodeChanges(changes, nodesRef.current);
+      replaceNodes(updated);
+      if (shouldPersistNodeChanges(changes)) {
+        rebuildEdges(updated);
+        notify(updated);
+      }
     },
-    [rebuildEdges, notify],
+    [rebuildEdges, notify, replaceNodes],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback((changes) => {
