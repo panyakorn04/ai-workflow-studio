@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  defaultWorkflowDefinition,
   describeSchedule,
   isValidCronExpression,
   legacyLabelsToDefinition,
@@ -9,6 +10,28 @@ import {
 } from "./workflow-definition";
 
 describe("workflow definition", () => {
+  test("creates an n8n-style default with independent schedule and manual roots", () => {
+    const definition = defaultWorkflowDefinition();
+    expect(definition.nodes.map((node) => node.label)).toEqual([
+      "Schedule",
+      "Manual Trigger",
+      "Read Source",
+      "Transform",
+      "Publish",
+    ]);
+    expect(definition.edges.map((edge) => `${edge.source}->${edge.target}`)).toEqual([
+      "schedule-trigger->read-source",
+      "manual-trigger->read-source",
+      "read-source->transform",
+      "transform->publish",
+    ]);
+    expect(definition.nodes[0].config).toMatchObject({
+      mode: "cron",
+      timezone: "Asia/Bangkok",
+      cronExpression: "0 12,20 * * *",
+    });
+  });
+
   test("migrates legacy labels with a configured schedule trigger", () => {
     const definition = legacyLabelsToDefinition(["Schedule", "Search", "Publish"]);
     expect(definition.version).toBe(1);

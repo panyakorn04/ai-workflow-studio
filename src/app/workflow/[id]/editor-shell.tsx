@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StudioWorkflow } from "@/lib/studio-api";
 import {
+  defaultWorkflowDefinition,
   inferNodeType,
   legacyLabelsToDefinition,
   parseWorkflowDefinition,
@@ -75,7 +76,11 @@ export function WorkflowEditorShell({ workflow }: Props) {
   const [description] = useState(workflow?.description ?? "");
   const [status, setStatus] = useState(workflow?.status ?? "draft");
   const [definition, setDefinition] = useState<WorkflowDefinitionV1>(() =>
-    workflow?.definition ? parseWorkflowDefinition(workflow.definition) : legacyLabelsToDefinition(fallbackLabels),
+    workflow?.definition
+      ? parseWorkflowDefinition(workflow.definition)
+      : workflow
+        ? legacyLabelsToDefinition(fallbackLabels)
+        : defaultWorkflowDefinition(),
   );
   const [definitionDirty, setDefinitionDirty] = useState(false);
   const [canvasSeed, setCanvasSeed] = useState(0);

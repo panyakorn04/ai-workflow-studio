@@ -48,6 +48,67 @@ export const defaultScheduleConfig: ScheduleTriggerConfig = {
   misfirePolicy: "skip",
 };
 
+export function defaultWorkflowDefinition(): WorkflowDefinitionV1 {
+  const nodes: WorkflowNodeDefinition[] = [
+    {
+      id: "schedule-trigger",
+      type: "schedule",
+      kind: "trigger",
+      label: "Schedule",
+      position: { x: 0, y: 0 },
+      config: {
+        enabled: true,
+        mode: "cron",
+        timezone: "Asia/Bangkok",
+        cronExpression: "0 12,20 * * *",
+        misfirePolicy: "skip",
+      },
+    },
+    {
+      id: "manual-trigger",
+      type: "manual",
+      kind: "trigger",
+      label: "Manual Trigger",
+      position: { x: 0, y: 140 },
+      config: { enabled: true },
+    },
+    {
+      id: "read-source",
+      type: "search",
+      kind: "action",
+      label: "Read Source",
+      position: { x: 240, y: 70 },
+      config: {},
+    },
+    {
+      id: "transform",
+      type: "transform",
+      kind: "action",
+      label: "Transform",
+      position: { x: 480, y: 70 },
+      config: {},
+    },
+    {
+      id: "publish",
+      type: "publish",
+      kind: "output",
+      label: "Publish",
+      position: { x: 720, y: 70 },
+      config: {},
+    },
+  ];
+  return {
+    version: 1,
+    nodes,
+    edges: [
+      { id: "edge-schedule-trigger-read-source", source: "schedule-trigger", target: "read-source" },
+      { id: "edge-manual-trigger-read-source", source: "manual-trigger", target: "read-source" },
+      { id: "edge-read-source-transform", source: "read-source", target: "transform" },
+      { id: "edge-transform-publish", source: "transform", target: "publish" },
+    ],
+  };
+}
+
 const nodeMeta: Record<WorkflowNodeType, { kind: WorkflowNodeKind; label: string }> = {
   schedule: { kind: "trigger", label: "Schedule" },
   webhook: { kind: "trigger", label: "Webhook" },
