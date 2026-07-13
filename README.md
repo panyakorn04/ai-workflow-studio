@@ -69,10 +69,20 @@ Version starts at `0.1.0` and increments with every commit. The current version 
 ## Quality gates
 
 ```bash
-bun test          # 15 tests, 0 fail
-bun run lint      # 32 files, 0 errors, warnings only
+bun test          # 24 tests, 0 fail
+bun run lint      # 37 files, 0 errors
 bun run build     # TypeScript + Next.js production build
 bun run verify    # All three together
+```
+
+## Deploy
+
+```bash
+# Production URL
+https://studio.panyakorn.com
+
+# Backend API
+https://api.panyakorn.com
 ```
 
 ## Agent skills
