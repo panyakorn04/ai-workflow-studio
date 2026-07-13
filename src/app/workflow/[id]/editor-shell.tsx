@@ -79,7 +79,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
   );
   const [definitionDirty, setDefinitionDirty] = useState(false);
   const [canvasSeed, setCanvasSeed] = useState(0);
-  const [selectedNodeID, setSelectedNodeID] = useState<string | null>(definition.nodes[0]?.id ?? null);
+  const [selectedNodeID, setSelectedNodeID] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [detailState, setDetailState] = useState<"loading" | "ready" | "error">(isNew ? "ready" : "loading");
@@ -98,7 +98,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
           const loaded = parseWorkflowDefinition(payload.data.definition);
           setDefinition(loaded);
           setDefinitionDirty(false);
-          setSelectedNodeID(loaded.nodes[0]?.id ?? null);
+          setSelectedNodeID(null);
           setCanvasSeed((seed) => seed + 1);
         }
         setDetailState("ready");
@@ -274,6 +274,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
         </div>
         {detailState === "ready" && (
           <NodeInspector
+            key={selectedNode?.id}
             node={selectedNode}
             workflowId={workflow?.id}
             hasUnsavedChanges={definitionDirty}

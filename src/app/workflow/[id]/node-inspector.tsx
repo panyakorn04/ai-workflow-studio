@@ -1,6 +1,6 @@
 "use client";
 import { Braces, Clock3, Play, Settings2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   defaultScheduleConfig,
   describeSchedule,
@@ -24,63 +24,29 @@ export function NodeInspector({
   onClose: () => void;
   onConfigChange: (config: Record<string, unknown>) => void;
 }) {
-  if (!node) return null;
-  return (
-    <aside className="node-inspector" aria-label="Node parameters">
-      <header>
-        <div className="inspector-icon">
-          <Settings2 size={16} />
-        </div>
-        <div>
-          <small>{node.kind.toUpperCase()}</small>
-          <strong>{node.label}</strong>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Close node parameters">
-          <X size={16} />
-        </button>
-      </header>
-      {node.type === "schedule" ? (
-        <ScheduleTriggerForm config={node.config} onChange={onConfigChange} />
-      ) : node.type === "manual" ? (
-        <ManualTriggerPanel key={node.id} node={node} workflowId={workflowId} hasUnsavedChanges={hasUnsavedChanges} />
-      ) : node.type === "webhook" ? (
-        <div className="inspector-empty">
-          <strong>Webhook trigger</strong>
-          <p>Webhook parameters will be enabled after the secure endpoint contract is available.</p>
-        </div>
-      ) : (
-        <div className="inspector-empty">
-          <strong>{node.label} parameters</strong>
-          <p>Parameters for this node type are not configured yet.</p>
-        </div>
-      )}
-    </aside>
-  );
-}
-
-function ManualTriggerPanel({
-  node,
-  workflowId,
-  hasUnsavedChanges,
-}: {
-  node: WorkflowNodeDefinition;
-  workflowId?: string;
-  hasUnsavedChanges: boolean;
-}) {
-  const [output, setOutput] = useState<unknown>(null);
+  const [activeTab, setActiveTab] = useState<"parameters" | "settings">("parameters");
+  const [output, setOutput] = useState<unknown[]>([]);
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  if (!node) return null;
+
   const blockedMessage = !workflowId
     ? "Save this workflow before executing the Manual Trigger."
     : hasUnsavedChanges
       ? "Save your workflow changes before executing this Manual Trigger."
       : "";
 
-  const execute = async () => {
-    if (blockedMessage) {
-      setError(blockedMessage);
-      return;
-    }
+  const executeManualTrigger = async () => {
+    if (node.type !== "manual" || blockedMessage) return;
     setExecuting(true);
     setError("");
     try {
@@ -91,7 +57,7 @@ function ManualTriggerPanel({
       });
       const payload = await response.json();
       if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Execute step failed.");
-      setOutput(payload.data.output);
+      setOutput(Array.isArray(payload.data?.output) ? payload.data.output : []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Execute step failed.");
     } finally {
@@ -99,44 +65,114 @@ function ManualTriggerPanel({
     }
   };
 
+  const parameterContent = (() => {
+    if (activeTab === "settings") {
+      return (
+        <div className="node-popup-empty-copy">
+          <strong>Node settings</strong>
+          <p>Runtime retry and timeout settings will appear here when the workflow executor is enabled.</p>
+        </div>
+      );
+    }
+    if (node.type === "schedule") return <ScheduleTriggerForm config={node.config} onChange={onConfigChange} />;
+    if (node.type === "manual") {
+      return (
+        <div className="manual-popup-parameters">
+          <div className="manual-trigger-note">
+            This node starts the workflow when you test it manually. Other trigger types can start the same workflow
+            independently.
+          </div>
+          <p>This node does not have any parameters.</p>
+          {blockedMessage ? (
+            <div className="manual-output-error" role="alert">
+              {blockedMessage}
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+    if (node.type === "webhook") {
+      return (
+        <div className="node-popup-empty-copy">
+          <strong>Webhook trigger</strong>
+          <p>Webhook parameters will be enabled after the secure endpoint contract is available.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="node-popup-empty-copy">
+        <strong>{node.label} parameters</strong>
+        <p>Parameters for this node type are not configured yet.</p>
+      </div>
+    );
+  })();
+
   return (
-    <div className="manual-trigger-panel">
-      <button
-        type="button"
-        className="manual-execute"
-        onClick={execute}
-        disabled={executing || Boolean(blockedMessage)}
-      >
-        <Play size={14} /> {executing ? "Executing…" : "Execute step"}
-      </button>
-      <div className="manual-trigger-note">
-        This node starts the workflow when you test it manually. It does not require parameters.
-      </div>
-      <div className="manual-output-header">
-        <span>
-          <Braces size={14} /> OUTPUT
-        </span>
-        {output ? <small>JSON</small> : null}
-      </div>
-      {blockedMessage ? (
-        <div className="manual-output-error" role="alert">
-          {blockedMessage}
+    <div className="node-popup-backdrop">
+      <section className="node-popup" role="dialog" aria-modal="true" aria-label={`${node.label} node editor`}>
+        <header className="node-popup-header">
+          <div className="inspector-icon">
+            <Settings2 size={16} />
+          </div>
+          <div className="node-popup-title">
+            <small>{node.kind.toUpperCase()}</small>
+            <strong>{node.label}</strong>
+          </div>
+          <div className="node-popup-actions">
+            {node.type === "manual" ? (
+              <button
+                type="button"
+                className="manual-execute"
+                onClick={executeManualTrigger}
+                disabled={executing || Boolean(blockedMessage)}
+              >
+                <Play size={14} /> {executing ? "Executing…" : "Execute step"}
+              </button>
+            ) : null}
+            <button type="button" className="node-popup-close" onClick={onClose} aria-label="Close node parameters">
+              <X size={17} />
+            </button>
+          </div>
+        </header>
+        <div className="node-popup-body">
+          <div className="node-popup-parameters">
+            <div className="node-popup-tabs">
+              <button
+                type="button"
+                className={activeTab === "parameters" ? "active" : ""}
+                onClick={() => setActiveTab("parameters")}
+              >
+                Parameters
+              </button>
+              <button
+                type="button"
+                className={activeTab === "settings" ? "active" : ""}
+                onClick={() => setActiveTab("settings")}
+              >
+                Settings
+              </button>
+            </div>
+            <div className="node-popup-parameter-content">{parameterContent}</div>
+          </div>
+          <div className="node-popup-output">
+            <div className="node-popup-output-header">
+              <span>
+                <Braces size={14} /> OUTPUT
+              </span>
+              <small>JSON</small>
+            </div>
+            {error ? (
+              <div className="manual-output-error" role="alert">
+                {error}
+              </div>
+            ) : null}
+            <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+            {output.length === 0 ? (
+              <p className="node-popup-output-hint">Execute this node to display JSON output.</p>
+            ) : null}
+          </div>
         </div>
-      ) : error ? (
-        <div className="manual-output-error" role="alert">
-          {error}
-        </div>
-      ) : output ? (
-        <pre className="manual-output-json">{JSON.stringify(output, null, 2)}</pre>
-      ) : (
-        <div className="manual-output-empty">
-          <Braces size={22} />
-          <strong>No trigger output</strong>
-          <button type="button" onClick={execute} disabled={executing || Boolean(blockedMessage)}>
-            Test this trigger
-          </button>
-        </div>
-      )}
+      </section>
     </div>
   );
 }
