@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StudioOverview } from "@/lib/studio-api";
 import { type ExecutionStatus, summarizeExecutions } from "@/lib/workflows";
@@ -124,6 +125,7 @@ function LoadingGate() {
 
 export function StudioDashboard({ data, appVersion }: { data: StudioOverview; appVersion: string }) {
   const studio = useWorkflowStudio(data);
+  const router = useRouter();
   const admin = useAdminSession();
   const command = useStudioCommand(admin.authenticated, admin.refresh);
   const [editingWorkflow, setEditingWorkflow] = useState<StudioOverview["workflows"][number] | null | undefined>(
@@ -179,7 +181,7 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
             <button type="button" className="icon-button" aria-label="Search">
               <Search size={16} />
             </button>
-            <button type="button" className="primary" onClick={() => setEditingWorkflow(null)}>
+            <button type="button" className="primary" onClick={() => router.push("/workflow/new")}>
               <Plus size={16} />
               New workflow
             </button>
@@ -289,7 +291,7 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
                       type="button"
                       className="more"
                       aria-label={`Edit ${w.name}`}
-                      onClick={() => setEditingWorkflow(w)}
+                      onClick={() => router.push(`/workflow/${w.id}`)}
                     >
                       <MoreHorizontal size={17} />
                     </button>
