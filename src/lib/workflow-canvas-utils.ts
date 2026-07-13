@@ -1,4 +1,4 @@
-import type { Edge, Node } from "@xyflow/react";
+import type { Edge, Node, NodeChange } from "@xyflow/react";
 
 const NODE_SPACING = 200;
 
@@ -40,4 +40,12 @@ export function positionForNewNode(existing: Node[]): { x: number; y: number } {
   if (existing.length === 0) return { x: 0, y: 0 };
   const last = existing.reduce((a, b) => (a.position.x > b.position.x ? a : b));
   return { x: last.position.x + NODE_SPACING, y: 0 };
+}
+
+export function renameFlowNode(nodes: Node[], id: string, label: string): Node[] {
+  return nodes.map((node) => (node.id === id ? { ...node, data: { ...node.data, label } } : node));
+}
+
+export function shouldPersistNodeChanges(changes: NodeChange[]): boolean {
+  return changes.some((change) => change.type === "position" || change.type === "remove");
 }

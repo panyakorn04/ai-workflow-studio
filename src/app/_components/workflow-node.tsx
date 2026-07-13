@@ -50,7 +50,6 @@ export function WorkflowNode({ id, data, selected }: NodeProps<WorkflowNodeType>
         className="node-delete-btn"
         aria-label={`Delete ${data.label}`}
         onClick={() => data.onDelete(id)}
-        tabIndex={-1}
       >
         ×
       </button>

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { Node } from "@xyflow/react";
-import { flowToNodes, nextNodeId, nodesToFlow, positionForNewNode } from "./workflow-canvas-utils";
+import {
+  flowToNodes,
+  nextNodeId,
+  nodesToFlow,
+  positionForNewNode,
+  renameFlowNode,
+  shouldPersistNodeChanges,
+} from "./workflow-canvas-utils";
 
 describe("nodesToFlow", () => {
   test("converts labels to nodes and edges", () => {
@@ -69,5 +76,21 @@ describe("positionForNewNode", () => {
       { id: "node-1", position: { x: 200, y: 0 }, data: {} },
     ];
     expect(positionForNewNode(nodes as Node[])).toEqual({ x: 400, y: 0 });
+  });
+});
+
+describe("canvas persistence helpers", () => {
+  test("renames a node without mutating the original collection", () => {
+    const nodes = [{ id: "node-0", position: { x: 0, y: 0 }, data: { label: "Old" } }] as Node[];
+    const updated = renameFlowNode(nodes, "node-0", "New");
+
+    expect((updated[0].data as { label: string }).label).toBe("New");
+    expect((nodes[0].data as { label: string }).label).toBe("Old");
+  });
+
+  test("persists position and removal changes, but not selection-only changes", () => {
+    expect(shouldPersistNodeChanges([{ id: "node-0", type: "position", position: { x: 1, y: 2 } }])).toBe(true);
+    expect(shouldPersistNodeChanges([{ id: "node-0", type: "remove" }])).toBe(true);
+    expect(shouldPersistNodeChanges([{ id: "node-0", type: "select", selected: true }])).toBe(false);
   });
 });

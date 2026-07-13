@@ -14,7 +14,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import { WorkflowNode } from "@/app/_components/workflow-node";
-import { flowToNodes, nodesToFlow } from "@/lib/workflow-canvas-utils";
+import { flowToNodes, nodesToFlow, renameFlowNode, shouldPersistNodeChanges } from "@/lib/workflow-canvas-utils";
 
 type Props = {
   initial: string[];
@@ -30,7 +30,7 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
   const notify = useCallback(
     (updated: Node[]) => {
       const labels = flowToNodes(updated);
-      if (labels.length > 0) onChange(labels);
+      onChange(labels);
     },
     [onChange],
   );
@@ -50,9 +50,16 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
     setEdges(newEdges);
   }, []);
 
-  const handleRename = useCallback((id: string, label: string) => {
-    setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n)));
-  }, []);
+  const handleRename = useCallback(
+    (id: string, label: string) => {
+      setNodes((nds) => {
+        const updated = renameFlowNode(nds, id, label);
+        notify(updated);
+        return updated;
+      });
+    },
+    [notify],
+  );
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -71,7 +78,7 @@ export function WorkflowEditorCanvas({ initial, onChange }: Props) {
     (changes) => {
       setNodes((nds) => {
         const updated = applyNodeChanges(changes, nds);
-        if (changes.some((c) => c.type === "position")) {
+        if (shouldPersistNodeChanges(changes)) {
           rebuildEdges(updated);
           notify(updated);
         }
