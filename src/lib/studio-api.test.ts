@@ -93,7 +93,7 @@ describe("studio API contract", () => {
     try {
       const result = await getStudioOverview();
       expect(requestedURL).toBe("https://api.example.test/api/studio/overview");
-      expect(result.source).toBe("fallback");
+      expect(result.source).toBe("empty");
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseURL === undefined) delete process.env.FRONTEND_API_BASE_URL;

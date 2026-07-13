@@ -1,8 +1,3 @@
-import {
-  executions as fallbackExecutions,
-  loopStages as fallbackStages,
-  workflows as fallbackWorkflows,
-} from "./demo-data";
 import type { ExecutionStatus, WorkflowStatus } from "./workflows";
 
 export type StudioWorkflow = {
@@ -30,7 +25,7 @@ export type StudioOverview = {
   workflows: StudioWorkflow[];
   executions: StudioExecution[];
   stages: StudioStage[];
-  source: "backend" | "fallback";
+  source: "backend" | "empty";
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -93,9 +88,6 @@ export function parseStudioOverview(payload: unknown): StudioOverview {
     !Array.isArray(workflows) ||
     !Array.isArray(executions) ||
     !Array.isArray(stages) ||
-    workflows.length === 0 ||
-    executions.length === 0 ||
-    stages.length === 0 ||
     !workflows.every(isWorkflow) ||
     !executions.every(isExecution) ||
     !stages.every(isStage)
@@ -105,21 +97,21 @@ export function parseStudioOverview(payload: unknown): StudioOverview {
   return { workflows, executions, stages, source: "backend" };
 }
 
-export function fallbackStudioOverview(): StudioOverview {
-  return { workflows: fallbackWorkflows, executions: fallbackExecutions, stages: fallbackStages, source: "fallback" };
+function emptyOverview(): StudioOverview {
+  return { workflows: [], executions: [], stages: [], source: "empty" };
 }
 
 export async function getStudioOverview(): Promise<StudioOverview> {
   const baseURL = process.env.FRONTEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (!baseURL) return fallbackStudioOverview();
+  if (!baseURL) return emptyOverview();
   try {
     const response = await fetch(`${baseURL.replace(/\/$/, "")}/api/studio/overview`, {
       next: { revalidate: 30 },
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) throw new Error(`Studio API returned ${response.status}`);
+    if (!response.ok) return emptyOverview();
     return parseStudioOverview(await response.json());
   } catch {
-    return fallbackStudioOverview();
+    return emptyOverview();
   }
 }

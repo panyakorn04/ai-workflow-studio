@@ -455,9 +455,13 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
         <footer>
           <span>
             <Sparkles size={13} />
-            {data.source === "backend" ? "Connected to portfolio backend" : "Demo fallback data"}
+            {data.source === "backend" ? "Connected to portfolio backend" : "No backend — empty workspace"}
           </span>
-          <span>{data.source === "backend" ? "Read model synchronized" : "Backend unavailable — fallback active"}</span>
+          <span>
+            {data.source === "backend"
+              ? "Read model synchronized"
+              : "Backend unavailable — start by creating a workflow"}
+          </span>
           <span>
             <Command size={12} /> Command menu
           </span>
