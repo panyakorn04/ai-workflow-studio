@@ -39,14 +39,15 @@ export function NodeInspector({
 
   if (!node) return null;
 
+  const isTrigger = node.kind === "trigger";
   const blockedMessage = !workflowId
-    ? "Save this workflow before executing the Manual Trigger."
+    ? "Save this workflow before executing the trigger."
     : hasUnsavedChanges
-      ? "Save your workflow changes before executing this Manual Trigger."
+      ? "Save your workflow changes before executing this trigger."
       : "";
 
-  const executeManualTrigger = async () => {
-    if (node.type !== "manual" || blockedMessage) return;
+  const executeTrigger = async () => {
+    if (!isTrigger || blockedMessage) return;
     setExecuting(true);
     setError("");
     try {
@@ -83,11 +84,6 @@ export function NodeInspector({
             independently.
           </div>
           <p>This node does not have any parameters.</p>
-          {blockedMessage ? (
-            <div className="manual-output-error" role="alert">
-              {blockedMessage}
-            </div>
-          ) : null}
         </div>
       );
     }
@@ -119,11 +115,11 @@ export function NodeInspector({
             <strong>{node.label}</strong>
           </div>
           <div className="node-popup-actions">
-            {node.type === "manual" ? (
+            {isTrigger ? (
               <button
                 type="button"
                 className="manual-execute"
-                onClick={executeManualTrigger}
+                onClick={executeTrigger}
                 disabled={executing || Boolean(blockedMessage)}
               >
                 <Play size={14} /> {executing ? "Executing…" : "Execute step"}
@@ -152,7 +148,14 @@ export function NodeInspector({
                 Settings
               </button>
             </div>
-            <div className="node-popup-parameter-content">{parameterContent}</div>
+            <div className="node-popup-parameter-content">
+              {parameterContent}
+              {isTrigger && blockedMessage ? (
+                <div className="manual-output-error node-trigger-save-warning" role="alert">
+                  {blockedMessage}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="node-popup-output">
             <div className="node-popup-output-header">
@@ -168,7 +171,11 @@ export function NodeInspector({
             ) : null}
             <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
             {output.length === 0 ? (
-              <p className="node-popup-output-hint">Execute this node to display JSON output.</p>
+              <p className="node-popup-output-hint">
+                {isTrigger
+                  ? "Execute this trigger to emit JSON output."
+                  : "This node receives JSON from its upstream node."}
+              </p>
             ) : null}
           </div>
         </div>
