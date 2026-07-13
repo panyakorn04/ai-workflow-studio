@@ -103,7 +103,14 @@ describe("canvas persistence helpers", () => {
     ] as Node[];
 
     expect(buildLinearEdges(nodes)).toEqual([
-      expect.objectContaining({ source: "node-a", target: "node-b", type: "smoothstep" }),
+      expect.objectContaining({
+        source: "node-a",
+        target: "node-b",
+        type: "smoothstep",
+        selectable: false,
+        deletable: false,
+        focusable: false,
+      }),
     ]);
     expect(buildLinearEdges([])).toEqual([]);
     expect(buildLinearEdges(nodesToFlow(["Only"]).nodes)).toEqual([]);

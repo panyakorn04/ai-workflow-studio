@@ -1,13 +1,11 @@
 "use client";
 import {
-  applyEdgeChanges,
   applyNodeChanges,
   Background,
   BackgroundVariant,
   Controls,
   type Edge,
   type Node,
-  type OnEdgesChange,
   type OnNodesChange,
   ReactFlow,
 } from "@xyflow/react";
@@ -56,7 +54,14 @@ function definitionToFlow(definition: WorkflowDefinitionV1): { nodes: Node[]; ed
       position: node.position,
       data: { label: node.label, nodeType: node.type, nodeKind: node.kind, config: node.config },
     })),
-    edges: definition.edges.map((edge) => ({ ...edge, type: "smoothstep", animated: false })),
+    edges: definition.edges.map((edge) => ({
+      ...edge,
+      type: "smoothstep",
+      animated: false,
+      selectable: false,
+      deletable: false,
+      focusable: false,
+    })),
   };
 }
 
@@ -191,15 +196,6 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
     [notify, rebuildEdges, replaceNodes],
   );
 
-  const onEdgesChange: OnEdgesChange = useCallback(
-    (changes) => {
-      const updated = applyEdgeChanges(changes, edgesRef.current);
-      replaceEdges(updated);
-      notify(nodesRef.current, updated);
-    },
-    [notify, replaceEdges],
-  );
-
   const nodesWithCallbacks = useMemo(
     () => nodes.map((node) => ({ ...node, data: { ...node.data, onRename: handleRename, onDelete: handleDelete } })),
     [nodes, handleRename, handleDelete],
@@ -211,7 +207,6 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
         nodes={nodesWithCallbacks}
         edges={edges}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
         onNodeClick={(_event, node) => onSelectedNodeChange(node.id)}
         onPaneClick={() => onSelectedNodeChange(null)}
         nodeTypes={nodeTypes}

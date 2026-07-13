@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   describeSchedule,
+  isValidCronExpression,
   legacyLabelsToDefinition,
   parseWorkflowDefinition,
   validateScheduleConfig,
@@ -36,6 +37,21 @@ describe("schedule trigger", () => {
     expect(describeSchedule({ ...config, mode: "weekly", daysOfWeek: [1, 2] })).toBe(
       "Weekly on Mon, Tue at 09:00 (Asia/Bangkok)",
     );
+  });
+
+  test("validates numeric 5-field cron syntax and ranges", () => {
+    expect(isValidCronExpression("0 9 * * *")).toBe(true);
+    expect(isValidCronExpression("*/15 8-17 * * 1-5")).toBe(true);
+    for (const invalid of [
+      "foo bar baz qux quux",
+      "60 9 * * *",
+      "0 24 * * *",
+      "0 9 * 13 *",
+      "0 9 * * 7",
+      "*/0 * * * *",
+    ]) {
+      expect(isValidCronExpression(invalid)).toBe(false);
+    }
   });
 
   test("rejects invalid mode-specific parameters", () => {

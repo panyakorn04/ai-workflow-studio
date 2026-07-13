@@ -51,6 +51,9 @@ export function buildLinearEdges(nodes: Node[]): Edge[] {
     target: sorted[index + 1].id,
     type: "smoothstep",
     animated: false,
+    selectable: false,
+    deletable: false,
+    focusable: false,
   }));
 }
 

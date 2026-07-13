@@ -189,6 +189,41 @@ function validTimezone(timezone: string) {
   }
 }
 
+function isValidCronNumber(raw: string, min: number, max: number) {
+  return /^\d+$/.test(raw) && Number(raw) >= min && Number(raw) <= max;
+}
+
+function isValidCronField(field: string, min: number, max: number) {
+  if (!field) return false;
+  return field.split(",").every((item) => {
+    const parts = item.split("/");
+    if (parts.length > 2) return false;
+    const [base, rawStep] = parts;
+    if (rawStep !== undefined && (!/^\d+$/.test(rawStep) || Number(rawStep) < 1 || Number(rawStep) > max - min + 1)) {
+      return false;
+    }
+    if (base === "*") return true;
+    const range = base.split("-");
+    if (range.length === 1) return isValidCronNumber(range[0], min, max);
+    if (range.length !== 2 || !isValidCronNumber(range[0], min, max) || !isValidCronNumber(range[1], min, max))
+      return false;
+    return Number(range[0]) <= Number(range[1]);
+  });
+}
+
+export function isValidCronExpression(expression: string) {
+  const fields = expression.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  const ranges = [
+    [0, 59],
+    [0, 23],
+    [1, 31],
+    [1, 12],
+    [0, 6],
+  ] as const;
+  return fields.every((field, index) => isValidCronField(field, ranges[index][0], ranges[index][1]));
+}
+
 export function validateScheduleConfig(value: unknown): string[] {
   if (!isRecord(value)) return ["Schedule configuration is required."];
   const errors: string[] = [];
@@ -222,9 +257,9 @@ export function validateScheduleConfig(value: unknown): string[] {
   }
   if (
     value.mode === "cron" &&
-    (typeof value.cronExpression !== "string" || value.cronExpression.trim().split(/\s+/).length !== 5)
+    (typeof value.cronExpression !== "string" || !isValidCronExpression(value.cronExpression))
   ) {
-    errors.push("Cron expression must contain 5 fields.");
+    errors.push("Cron expression must be a valid 5-field numeric expression.");
   }
   return errors;
 }
