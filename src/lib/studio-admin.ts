@@ -13,6 +13,7 @@ export type StudioAdminCommand =
   | { action: "pause" | "retry" | "cancel" | "approve"; id: string }
   | { action: "create-execution"; workflowId: string }
   | { action: "execute-node"; workflowId: string; nodeId: string }
+  | { action: "execute-http-request"; workflowId: string; nodeId: string }
   | { action: "create-workflow"; payload: StudioWorkflowPayload }
   | { action: "update-workflow"; id: string; payload: StudioWorkflowPayload };
 
@@ -23,6 +24,12 @@ export function studioAdminTarget(command: StudioAdminCommand) {
     return {
       method: "POST",
       path: `/api/admin/studio/workflows/${encodeURIComponent(command.workflowId)}/nodes/${encodeURIComponent(command.nodeId)}/execute`,
+      body: undefined,
+    };
+  if (command.action === "execute-http-request")
+    return {
+      method: "POST",
+      path: `/api/admin/studio/workflows/${encodeURIComponent(command.workflowId)}/nodes/${encodeURIComponent(command.nodeId)}/http-request`,
       body: undefined,
     };
   if (command.action === "create-workflow")

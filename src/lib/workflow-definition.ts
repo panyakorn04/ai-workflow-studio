@@ -8,6 +8,7 @@ export type WorkflowNodeType =
   | "generate"
   | "extract"
   | "transform"
+  | "http-request"
   | "review"
   | "approve"
   | "condition"
@@ -118,6 +119,7 @@ const nodeMeta: Record<WorkflowNodeType, { kind: WorkflowNodeKind; label: string
   generate: { kind: "action", label: "Generate" },
   extract: { kind: "action", label: "Extract" },
   transform: { kind: "action", label: "Transform" },
+  "http-request": { kind: "action", label: "HTTP Request" },
   review: { kind: "logic", label: "Review" },
   approve: { kind: "logic", label: "Approve" },
   condition: { kind: "logic", label: "Condition" },
@@ -143,6 +145,8 @@ export function inferNodeType(label: string, index = 0): WorkflowNodeType {
   if (exact) return exact;
   if (normalized.includes("schedule")) return "schedule";
   if (normalized.includes("webhook")) return "webhook";
+  if (normalized.includes("http") || normalized.includes("api") || normalized.includes("request"))
+    return "http-request";
   if (normalized.includes("trigger") || (index === 0 && normalized === "start")) return "manual";
   return index === 0 ? "manual" : "transform";
 }
@@ -151,6 +155,8 @@ export function defaultConfigForType(type: WorkflowNodeType): Record<string, unk
   if (type === "schedule") return { ...defaultScheduleConfig };
   if (type === "manual") return { enabled: true };
   if (type === "webhook") return { enabled: true, method: "POST", authMode: "none", responseMode: "immediate" };
+  if (type === "http-request")
+    return { method: "GET", url: "", headers: { "Content-Type": "application/json" }, body: "" };
   return {};
 }
 

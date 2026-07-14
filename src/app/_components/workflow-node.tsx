@@ -18,7 +18,7 @@ const nodeLooks = [
   { keywords: ["schedule", "trigger", "webhook", "manual"], tone: "trigger", icon: Clock3 },
   { keywords: ["condition", "route", "review", "approve", "logic"], tone: "logic", icon: GitBranch },
   { keywords: ["publish", "notify", "sync", "export", "send"], tone: "output", icon: Send },
-  { keywords: ["search", "sheet", "data", "read", "fetch"], tone: "data", icon: Globe2 },
+  { keywords: ["search", "sheet", "data", "read", "fetch", "http", "api"], tone: "data", icon: Globe2 },
   { keywords: ["analyze", "generate", "extract", "transform", "process"], tone: "action", icon: Braces },
 ] as const;
 

@@ -32,7 +32,7 @@ const nodeGroups: Array<{ label: string; tone: string; nodes: Array<{ label: str
   {
     label: "Actions",
     tone: "action",
-    nodes: ["Search", "Analyze", "Generate", "Extract", "Transform"].map((label) => ({
+    nodes: ["Search", "Analyze", "Generate", "Extract", "Transform", "HTTP Request"].map((label) => ({
       label,
       type: inferNodeType(label),
     })),

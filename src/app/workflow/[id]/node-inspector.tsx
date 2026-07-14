@@ -1,5 +1,5 @@
 "use client";
-import { Braces, Clock3, Pencil, Play, Settings2, Table2, X } from "lucide-react";
+import { Braces, Clock3, Globe2, Pencil, Play, Settings2, Table2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   defaultScheduleConfig,
@@ -97,6 +97,29 @@ export function NodeInspector({
     }
   };
 
+  const executeHttpRequest = async () => {
+    if (!workflowId || hasUnsavedChanges) {
+      setError("Save your workflow changes before executing this node.");
+      return;
+    }
+    setExecuting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "execute-http-request", workflowId, nodeId: node.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "HTTP request failed.");
+      setOutput(Array.isArray(payload.data?.output) ? payload.data.output : []);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "HTTP request failed.");
+    } finally {
+      setExecuting(false);
+    }
+  };
+
   const parameterContent = (() => {
     if (activeTab === "settings") {
       return (
@@ -126,6 +149,9 @@ export function NodeInspector({
         </div>
       );
     }
+    if (node.type === "http-request") {
+      return <HttpRequestForm config={node.config} onChange={onConfigChange} />;
+    }
     return (
       <div className="node-popup-empty-copy">
         <strong>{node.label} parameters</strong>
@@ -154,6 +180,15 @@ export function NodeInspector({
                 disabled={executing || Boolean(blockedMessage)}
               >
                 <Play size={14} /> {executing ? "Executing…" : "Execute step"}
+              </button>
+            ) : node.type === "http-request" ? (
+              <button
+                type="button"
+                className="manual-execute"
+                onClick={executeHttpRequest}
+                disabled={executing || !workflowId || hasUnsavedChanges}
+              >
+                <Play size={14} /> {executing ? "Sending…" : "Send request"}
               </button>
             ) : null}
             <button type="button" className="node-popup-close" onClick={onClose} aria-label="Close node parameters">
@@ -351,6 +386,81 @@ function OutputSchemaView({ data }: { data: unknown[] }) {
   }, [data]);
 
   return <pre className="node-popup-json">{schema}</pre>;
+}
+
+function HttpRequestForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (config: Record<string, unknown>) => void;
+}) {
+  const method = (config.method as string) || "GET";
+  const url = (config.url as string) || "";
+  const body = (config.body as string) || "";
+
+  const update = (patch: Record<string, unknown>) => onChange({ ...config, ...patch });
+
+  let headersObj: Record<string, string> = {};
+  let headerError = "";
+  try {
+    headersObj =
+      typeof config.headers === "string"
+        ? JSON.parse(config.headers)
+        : (config.headers as Record<string, string>) || {};
+  } catch {
+    headerError = "Headers must be valid JSON.";
+  }
+
+  return (
+    <div className="inspector-form">
+      <div className="inspector-section-title">
+        <Globe2 size={14} /> HTTP Request
+      </div>
+      <label>
+        Method
+        <select value={method} onChange={(e) => update({ method: e.target.value })}>
+          <option value="GET">GET</option>
+          <option value="POST">POST</option>
+          <option value="PUT">PUT</option>
+          <option value="PATCH">PATCH</option>
+          <option value="DELETE">DELETE</option>
+        </select>
+      </label>
+      <label>
+        URL
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => update({ url: e.target.value })}
+          placeholder="https://api.example.com/data"
+        />
+      </label>
+      <label>
+        Headers (JSON)
+        <textarea
+          className="inspector-textarea"
+          rows={4}
+          value={typeof config.headers === "string" ? config.headers : JSON.stringify(headersObj, null, 2)}
+          onChange={(e) => update({ headers: e.target.value })}
+          placeholder='{"Content-Type": "application/json"}'
+        />
+        {headerError ? <small className="inspector-error">{headerError}</small> : null}
+      </label>
+      {method !== "GET" && method !== "DELETE" && (
+        <label>
+          Body
+          <textarea
+            className="inspector-textarea"
+            rows={6}
+            value={body}
+            onChange={(e) => update({ body: e.target.value })}
+            placeholder='{"key": "value"}'
+          />
+        </label>
+      )}
+    </div>
+  );
 }
 
 function ScheduleTriggerForm({
