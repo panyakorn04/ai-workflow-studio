@@ -1,6 +1,6 @@
 "use client";
-import { Braces, Clock3, Play, Settings2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Braces, Clock3, Pencil, Play, Settings2, Table2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   defaultScheduleConfig,
   describeSchedule,
@@ -25,20 +25,29 @@ export function NodeInspector({
   onConfigChange: (config: Record<string, unknown>) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"parameters" | "settings">("parameters");
-  const [output, setOutput] = useState<unknown[]>(() => {
-    const custom = node?.config?.outputPayload;
-    if (typeof custom === "string" && custom.trim()) {
-      try {
-        const parsed = JSON.parse(custom);
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [output, setOutput] = useState<unknown[]>([]);
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
+  const [outputFormat, setOutputFormat] = useState<"json" | "table" | "schema">("json");
+  const [editingPayload, setEditingPayload] = useState(false);
+  const [draftPayload, setDraftPayload] = useState("");
+
+  const syncOutputFromPayload = useCallback((payload: string | undefined) => {
+    if (typeof payload === "string" && payload.trim()) {
+      try {
+        const parsed = JSON.parse(payload);
+        setOutput(Array.isArray(parsed) ? parsed : [parsed]);
+        return;
+      } catch {
+        /* not valid */
+      }
+    }
+    setOutput([]);
+  }, []);
+
+  useEffect(() => {
+    syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
+  }, [node?.config?.outputPayload, syncOutputFromPayload]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -47,22 +56,6 @@ export function NodeInspector({
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
-
-  useEffect(() => {
-    if (node?.config?.outputPayload) {
-      const custom = node.config.outputPayload;
-      if (typeof custom === "string" && custom.trim()) {
-        try {
-          const parsed = JSON.parse(custom);
-          setOutput(Array.isArray(parsed) ? parsed : [parsed]);
-          return;
-        } catch {
-          /* not valid JSON yet */
-        }
-      }
-    }
-    setOutput([]);
-  }, [node?.config?.outputPayload]);
 
   if (!node) return null;
 
@@ -121,17 +114,15 @@ export function NodeInspector({
             This node starts the workflow when you test it manually. Other trigger types can start the same workflow
             independently.
           </div>
-          <TriggerOutputForm config={node.config} onChange={onConfigChange} />
+          <p>This node does not have any parameters.</p>
         </div>
       );
     }
     if (node.type === "webhook") {
       return (
-        <div className="manual-popup-parameters">
-          <div className="manual-trigger-note">
-            Webhook parameters will be enabled after the secure endpoint contract is available.
-          </div>
-          <TriggerOutputForm config={node.config} onChange={onConfigChange} />
+        <div className="node-popup-empty-copy">
+          <strong>Webhook trigger</strong>
+          <p>Webhook parameters will be enabled after the secure endpoint contract is available.</p>
         </div>
       );
     }
@@ -202,15 +193,82 @@ export function NodeInspector({
               <span>
                 <Braces size={14} /> OUTPUT
               </span>
-              <small>JSON</small>
+              <div className="output-format-tabs">
+                <button
+                  type="button"
+                  className={outputFormat === "schema" ? "active" : ""}
+                  onClick={() => setOutputFormat("schema")}
+                >
+                  Schema
+                </button>
+                <button
+                  type="button"
+                  className={outputFormat === "table" ? "active" : ""}
+                  onClick={() => setOutputFormat("table")}
+                >
+                  <Table2 size={12} />
+                  Table
+                </button>
+                <button
+                  type="button"
+                  className={outputFormat === "json" ? "active" : ""}
+                  onClick={() => setOutputFormat("json")}
+                >
+                  JSON
+                </button>
+              </div>
+              {isTrigger && (
+                <button
+                  type="button"
+                  className="output-edit-btn"
+                  aria-label={editingPayload ? "Done editing" : "Edit output payload"}
+                  onClick={() => {
+                    if (editingPayload) {
+                      try {
+                        JSON.parse(draftPayload);
+                        onConfigChange({ ...node.config, outputPayload: draftPayload });
+                      } catch {
+                        /* don't save invalid JSON */
+                      }
+                      setEditingPayload(false);
+                    } else {
+                      const current = node.config.outputPayload;
+                      setDraftPayload(typeof current === "string" ? current : JSON.stringify(output, null, 2));
+                      setEditingPayload(true);
+                    }
+                  }}
+                >
+                  <Pencil size={13} />
+                  {editingPayload ? "Done" : "Edit"}
+                </button>
+              )}
             </div>
             {error ? (
               <div className="manual-output-error" role="alert">
                 {error}
               </div>
             ) : null}
-            <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
-            {output.length === 0 ? (
+            {editingPayload ? (
+              <div className="output-edit-area">
+                <textarea
+                  className="trigger-output-editor"
+                  rows={14}
+                  value={draftPayload}
+                  onChange={(e) => setDraftPayload(e.target.value)}
+                  placeholder='[{"key": "value"}]'
+                />
+                <p className="output-edit-hint">
+                  Edit the JSON payload this trigger emits. Changes apply when you click Done.
+                </p>
+              </div>
+            ) : outputFormat === "json" ? (
+              <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+            ) : outputFormat === "table" ? (
+              <OutputTableView data={output} />
+            ) : (
+              <OutputSchemaView data={output} />
+            )}
+            {!editingPayload && output.length === 0 ? (
               <p className="node-popup-output-hint">
                 {isTrigger
                   ? "Execute this trigger to emit JSON output."
@@ -224,46 +282,75 @@ export function NodeInspector({
   );
 }
 
-function TriggerOutputForm({
-  config,
-  onChange,
-}: {
-  config: Record<string, unknown>;
-  onChange: (config: Record<string, unknown>) => void;
-}) {
-  const raw = (config.outputPayload as string) ?? "";
-  const [jsonError, setJsonError] = useState("");
+function OutputTableView({ data }: { data: unknown[] }) {
+  const keys = useMemo(() => {
+    const keySet = new Set<string>();
+    for (const item of data) {
+      if (typeof item === "object" && item !== null) {
+        for (const k of Object.keys(item as Record<string, unknown>)) keySet.add(k);
+      }
+    }
+    return [...keySet];
+  }, [data]);
+
+  if (data.length === 0 || keys.length === 0) {
+    return <pre className="node-popup-json">{JSON.stringify(data, null, 2)}</pre>;
+  }
+
   return (
-    <div className="inspector-form">
-      <div className="inspector-section-title">
-        <Braces size={14} /> Custom output payload
-      </div>
-      <p style={{ fontSize: 10, color: "var(--muted)", margin: 0 }}>
-        Define the JSON this trigger emits. Leave empty to use the backend response.
-      </p>
-      <textarea
-        className="trigger-output-editor"
-        rows={8}
-        value={raw}
-        onChange={(event) => {
-          const val = event.target.value;
-          setJsonError("");
-          try {
-            if (val.trim()) JSON.parse(val);
-          } catch {
-            setJsonError("Invalid JSON");
-          }
-          onChange({ ...config, outputPayload: val });
-        }}
-        placeholder='[{"key": "value"}]'
-      />
-      {jsonError ? (
-        <small style={{ color: "var(--red)" }} role="alert">
-          {jsonError}
-        </small>
-      ) : null}
+    <div className="output-table-wrap">
+      <table className="output-table">
+        <thead>
+          <tr>
+            {keys.map((key) => (
+              <th key={key}>{key}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((item, i) => (
+            <tr key={i}>
+              {keys.map((key) => (
+                <td key={key}>
+                  {typeof (item as Record<string, unknown>)?.[key] === "object"
+                    ? JSON.stringify((item as Record<string, unknown>)[key])
+                    : String((item as Record<string, unknown>)?.[key] ?? "")}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
+}
+
+function OutputSchemaView({ data }: { data: unknown[] }) {
+  const schema = useMemo(() => {
+    if (data.length === 0) return "empty array";
+    const types = new Set<string>();
+    const props: Record<string, Set<string>> = {};
+    for (const item of data) {
+      types.add(typeof item);
+      if (typeof item === "object" && item !== null) {
+        for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+          if (!props[k]) props[k] = new Set();
+          props[k].add(Array.isArray(v) ? "array" : typeof v);
+        }
+      }
+    }
+    const lines: string[] = [`Array<${[...types].join(" | ")}>`];
+    if (Object.keys(props).length > 0) {
+      lines.push("{");
+      for (const [key, typeSet] of Object.entries(props)) {
+        lines.push(`  "${key}": ${[...typeSet].join(" | ")}`);
+      }
+      lines.push("}");
+    }
+    return lines.join("\n");
+  }, [data]);
+
+  return <pre className="node-popup-json">{schema}</pre>;
 }
 
 function ScheduleTriggerForm({
@@ -411,7 +498,6 @@ function ScheduleTriggerForm({
       >
         Reset to defaults
       </button>
-      <TriggerOutputForm config={config} onChange={onChange} />
     </div>
   );
 }
