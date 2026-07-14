@@ -25,7 +25,18 @@ export function NodeInspector({
   onConfigChange: (config: Record<string, unknown>) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"parameters" | "settings">("parameters");
-  const [output, setOutput] = useState<unknown[]>([]);
+  const [output, setOutput] = useState<unknown[]>(() => {
+    const custom = node?.config?.outputPayload;
+    if (typeof custom === "string" && custom.trim()) {
+      try {
+        const parsed = JSON.parse(custom);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
 
@@ -36,6 +47,22 @@ export function NodeInspector({
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
+
+  useEffect(() => {
+    if (node?.config?.outputPayload) {
+      const custom = node.config.outputPayload;
+      if (typeof custom === "string" && custom.trim()) {
+        try {
+          const parsed = JSON.parse(custom);
+          setOutput(Array.isArray(parsed) ? parsed : [parsed]);
+          return;
+        } catch {
+          /* not valid JSON yet */
+        }
+      }
+    }
+    setOutput([]);
+  }, [node?.config?.outputPayload]);
 
   if (!node) return null;
 
@@ -48,6 +75,17 @@ export function NodeInspector({
 
   const executeTrigger = async () => {
     if (!isTrigger || blockedMessage) return;
+    const customOutput = node.config.outputPayload;
+    if (typeof customOutput === "string" && customOutput.trim()) {
+      try {
+        const parsed = JSON.parse(customOutput);
+        setOutput(Array.isArray(parsed) ? parsed : [parsed]);
+        setError("");
+      } catch {
+        setError("Custom output payload is not valid JSON.");
+      }
+      return;
+    }
     setExecuting(true);
     setError("");
     try {
@@ -83,15 +121,17 @@ export function NodeInspector({
             This node starts the workflow when you test it manually. Other trigger types can start the same workflow
             independently.
           </div>
-          <p>This node does not have any parameters.</p>
+          <TriggerOutputForm config={node.config} onChange={onConfigChange} />
         </div>
       );
     }
     if (node.type === "webhook") {
       return (
-        <div className="node-popup-empty-copy">
-          <strong>Webhook trigger</strong>
-          <p>Webhook parameters will be enabled after the secure endpoint contract is available.</p>
+        <div className="manual-popup-parameters">
+          <div className="manual-trigger-note">
+            Webhook parameters will be enabled after the secure endpoint contract is available.
+          </div>
+          <TriggerOutputForm config={node.config} onChange={onConfigChange} />
         </div>
       );
     }
@@ -184,6 +224,48 @@ export function NodeInspector({
   );
 }
 
+function TriggerOutputForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (config: Record<string, unknown>) => void;
+}) {
+  const raw = (config.outputPayload as string) ?? "";
+  const [jsonError, setJsonError] = useState("");
+  return (
+    <div className="inspector-form">
+      <div className="inspector-section-title">
+        <Braces size={14} /> Custom output payload
+      </div>
+      <p style={{ fontSize: 10, color: "var(--muted)", margin: 0 }}>
+        Define the JSON this trigger emits. Leave empty to use the backend response.
+      </p>
+      <textarea
+        className="trigger-output-editor"
+        rows={8}
+        value={raw}
+        onChange={(event) => {
+          const val = event.target.value;
+          setJsonError("");
+          try {
+            if (val.trim()) JSON.parse(val);
+          } catch {
+            setJsonError("Invalid JSON");
+          }
+          onChange({ ...config, outputPayload: val });
+        }}
+        placeholder='[{"key": "value"}]'
+      />
+      {jsonError ? (
+        <small style={{ color: "var(--red)" }} role="alert">
+          {jsonError}
+        </small>
+      ) : null}
+    </div>
+  );
+}
+
 function ScheduleTriggerForm({
   config,
   onChange,
@@ -195,11 +277,12 @@ function ScheduleTriggerForm({
   const errors = validateScheduleConfig(value);
   const update = (patch: Partial<ScheduleTriggerConfig>) => onChange({ ...value, ...patch });
   const setMode = (mode: ScheduleTriggerConfig["mode"]) => {
-    const base: ScheduleTriggerConfig = {
+    const base: Record<string, unknown> = {
       enabled: value.enabled,
       mode,
       timezone: value.timezone,
       misfirePolicy: value.misfirePolicy,
+      outputPayload: config.outputPayload,
     };
     if (mode === "interval") base.intervalMinutes = 60;
     if (mode === "daily") base.time = "09:00";
@@ -321,9 +404,14 @@ function ScheduleTriggerForm({
           <p key={`${error}-${i}`}>{error}</p>
         ))}
       </div>
-      <button type="button" className="inspector-reset" onClick={() => onChange({ ...defaultScheduleConfig })}>
+      <button
+        type="button"
+        className="inspector-reset"
+        onClick={() => onChange({ ...defaultScheduleConfig, outputPayload: config.outputPayload })}
+      >
         Reset to defaults
       </button>
+      <TriggerOutputForm config={config} onChange={onChange} />
     </div>
   );
 }
