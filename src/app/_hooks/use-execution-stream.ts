@@ -6,7 +6,10 @@ export function useExecutionStream(executionId: string, fallback: ExecutionSnaps
   const [snapshot, setSnapshot] = useState(fallback);
   const [connection, setConnection] = useState<"connecting" | "live" | "reconnecting" | "fallback">("connecting");
   const fallbackRef = useRef(fallback);
-  fallbackRef.current = fallback;
+
+  useEffect(() => {
+    fallbackRef.current = fallback;
+  }, [fallback]);
 
   useEffect(() => {
     let source: EventSource | undefined;

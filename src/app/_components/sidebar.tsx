@@ -30,13 +30,13 @@ export function Sidebar() {
       <button type="button" className="workspace">
         <span className="avatar">PB</span>
         <span>
-          <strong>Panyakorn</strong>
+          <strong>User</strong>
           <small>Production workspace</small>
         </span>
         <ChevronDown size={14} />
       </button>
       <nav>
-        <p>Workspace</p>
+        <h2 className="sidebar-section-heading">Workspace</h2>
         {nav.map(({ label, icon: Icon, active, count }) => (
           <button
             type="button"

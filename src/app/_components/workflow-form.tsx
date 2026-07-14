@@ -43,15 +43,10 @@ export function WorkflowForm({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <section
-        className={`workflow-modal ${workflow ? "wide" : "wide"}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="workflow-form-title"
-      >
+      <section className="workflow-modal wide" role="dialog" aria-modal="true" aria-labelledby="workflow-form-title">
         <header>
           <div>
-            <p>WORKFLOW DEFINITION</p>
+            <h2 className="sr-only">WORKFLOW DEFINITION</h2>
             <h2 id="workflow-form-title">{workflow ? "Edit workflow" : "Create workflow"}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">

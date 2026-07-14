@@ -33,6 +33,7 @@
         "noUnusedFunctionParameters": "warn"
       },
       "suspicious": {
+        "noArrayIndexKey": "off",
         "noShadowRestrictedNames": "warn"
       },
       "style": {

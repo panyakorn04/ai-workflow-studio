@@ -132,18 +132,18 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
     undefined,
   );
   const { executions, stages: loopStages } = data;
-  const selected = executions.find((x) => x.id === studio.selectedRun) ?? executions[0];
+  const selected = executions.find((x) => x.id === studio.selectedRun) ?? executions[0] ?? null;
   const fallbackSnapshot = useMemo(
     () => ({
-      execution: selected,
+      execution: selected ?? { id: "", workflow: "", status: "completed" as const, started: "", duration: "", cost: 0 },
       stages: loopStages.map((stage, position) => ({
-        executionId: selected.id,
+        executionId: selected?.id ?? "",
         position,
         name: stage.name,
         status: stage.state === "done" ? ("completed" as const) : stage.state,
         detail: stage.detail,
         metadata: {},
-        updatedAt: selected.started,
+        updatedAt: selected?.started ?? "",
       })),
     }),
     [selected, loopStages],
@@ -172,8 +172,8 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
       <main className="main">
         <header className="topbar">
           <div>
-            <p className="eyebrow">CONTROL PLANE / OVERVIEW</p>
-            <h1>Good morning, Panyakorn</h1>
+            <h2 className="eyebrow">CONTROL PLANE / OVERVIEW</h2>
+            <h1>Good morning, {admin.user?.name ?? "User"}</h1>
             <p>Monitor your agent workflows and act on what needs attention.</p>
           </div>
           <div className="header-actions">
@@ -262,7 +262,7 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
                     <p>{w.description}</p>
                     <div className="node-flow">
                       {w.nodes.map((n, i) => (
-                        <span key={n}>
+                        <span key={`${n}-${i}`}>
                           <b>{n}</b>
                           {i < w.nodes.length - 1 && <ChevronRight size={12} />}
                         </span>
@@ -328,7 +328,10 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
             </div>
             <div className={`timeline ${liveSelected.status !== "running" ? "timeline-static" : ""}`}>
               {executionStages.map((stage, i) => (
-                <div className={`stage ${stage.status === "completed" ? "done" : stage.status}`} key={stage.name}>
+                <div
+                  className={`stage ${stage.status === "completed" ? "done" : stage.status}`}
+                  key={`${stage.name}-${i}`}
+                >
                   <div className="stage-rail">
                     <span>
                       {stage.status === "completed" ? (

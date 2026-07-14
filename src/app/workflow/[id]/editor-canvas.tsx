@@ -65,11 +65,25 @@ function definitionToFlow(definition: WorkflowDefinitionV1): { nodes: Node[]; ed
   };
 }
 
+function parseNodeData(data: unknown): CanvasNodeData {
+  if (typeof data !== "object" || data === null) {
+    return { label: "", nodeType: "manual", nodeKind: "trigger", config: {} };
+  }
+  const record = data as Record<string, unknown>;
+  return {
+    label: typeof record.label === "string" ? record.label : "",
+    nodeType: (typeof record.nodeType === "string" ? record.nodeType : "manual") as WorkflowNodeType,
+    nodeKind: (typeof record.nodeKind === "string" ? record.nodeKind : "trigger") as WorkflowNodeDefinition["kind"],
+    config:
+      typeof record.config === "object" && record.config !== null ? (record.config as Record<string, unknown>) : {},
+  };
+}
+
 function flowToDefinition(nodes: Node[], edges: Edge[]): WorkflowDefinitionV1 {
   return {
     version: 1,
     nodes: nodes.map((node) => {
-      const data = node.data as CanvasNodeData;
+      const data = parseNodeData(node.data);
       return {
         id: node.id,
         type: data.nodeType,
@@ -118,9 +132,7 @@ export const WorkflowEditorCanvas = forwardRef<WorkflowEditorCanvasHandle, Props
   const addNode = useCallback(
     (type: WorkflowNodeType, label: string) => {
       const meta = nodeMetaForType(type);
-      const triggerCount = nodesRef.current.filter(
-        (node) => (node.data as CanvasNodeData).nodeKind === "trigger",
-      ).length;
+      const triggerCount = nodesRef.current.filter((node) => parseNodeData(node.data).nodeKind === "trigger").length;
       const node: Node = {
         id: nextNodeId(nodesRef.current),
         type: "workflow",

@@ -31,7 +31,7 @@ export function NodePalette({ onAddNode }: Props) {
 
   return (
     <div className="node-palette">
-      <span className="palette-label">Add node:</span>
+      <h3 className="palette-label">Add node:</h3>
       {defaultNodes.map((label) => (
         <button key={label} type="button" className="palette-chip" onClick={() => onAddNode(label)}>
           {label}

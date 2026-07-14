@@ -13,10 +13,26 @@ export function nodesToFlow(labels: string[]): { nodes: Node[]; edges: Edge[] } 
   return { nodes, edges: buildLinearEdges(nodes) };
 }
 
+function nodeLabel(node: Node): string | undefined {
+  if (typeof node.data === "object" && node.data !== null && "label" in node.data) {
+    const label = (node.data as Record<string, unknown>).label;
+    return typeof label === "string" ? label : undefined;
+  }
+  return undefined;
+}
+
+function nodeKind(node: Node): string | undefined {
+  if (typeof node.data === "object" && node.data !== null && "nodeKind" in node.data) {
+    const kind = (node.data as Record<string, unknown>).nodeKind;
+    return typeof kind === "string" ? kind : undefined;
+  }
+  return undefined;
+}
+
 export function flowToNodes(nodes: Node[]): string[] {
   return [...nodes]
     .sort((a, b) => a.position.x - b.position.x)
-    .map((n) => (n.data as { label?: string })?.label ?? "")
+    .map((n) => nodeLabel(n) ?? "")
     .filter((l) => l.length > 0);
 }
 
@@ -71,11 +87,9 @@ function graphEdge(source: Node, target: Node): Edge {
 }
 
 export function buildTriggerGraphEdges(nodes: Node[]): Edge[] {
-  const triggers = nodes
-    .filter((node) => (node.data as { nodeKind?: string }).nodeKind === "trigger")
-    .sort((a, b) => a.position.y - b.position.y);
+  const triggers = nodes.filter((node) => nodeKind(node) === "trigger").sort((a, b) => a.position.y - b.position.y);
   const steps = nodes
-    .filter((node) => (node.data as { nodeKind?: string }).nodeKind !== "trigger")
+    .filter((node) => nodeKind(node) !== "trigger")
     .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y);
   if (steps.length === 0) return [];
   return [

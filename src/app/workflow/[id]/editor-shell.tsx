@@ -74,7 +74,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
   const isNew = !workflow;
   const fallbackLabels = workflow?.nodes?.length ? workflow.nodes : ["Schedule", "Transform"];
   const [name, setName] = useState(workflow?.name ?? "Untitled workflow");
-  const [description] = useState(workflow?.description ?? "");
+  const description = workflow?.description ?? "";
   const [status, setStatus] = useState(workflow?.status ?? "draft");
   const [definition, setDefinition] = useState<WorkflowDefinitionV1>(() =>
     workflow?.definition
@@ -196,7 +196,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
   return (
     <div className="editor-shell">
       <header className="editor-topbar">
-        <button type="button" className="editor-back" onClick={goBack}>
+        <button type="button" className="editor-back" onClick={goBack} aria-label="Back to dashboard">
           <ArrowLeft size={16} />
         </button>
         <div className="editor-title-area">
@@ -215,16 +215,16 @@ export function WorkflowEditorShell({ workflow }: Props) {
           )}
         </div>
         <div className="editor-actions">
-          <button type="button" className="editor-btn" title="Preview">
+          <button type="button" className="editor-btn" aria-label="Preview">
             <Eye size={14} />
           </button>
-          <button type="button" className="editor-btn" title="Settings">
+          <button type="button" className="editor-btn" aria-label="Settings">
             <Settings size={14} />
           </button>
-          <button type="button" className="editor-btn" title="Share">
+          <button type="button" className="editor-btn" aria-label="Share">
             <Share2 size={14} />
           </button>
-          <button type="button" className="editor-btn" title="More">
+          <button type="button" className="editor-btn" aria-label="More">
             <MoreHorizontal size={14} />
           </button>
           <div className="editor-divider" />
@@ -252,7 +252,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
         <aside className="editor-node-panel">
           {nodeGroups.map((group) => (
             <div className="editor-panel-section" key={group.label}>
-              <p className="editor-panel-label">{group.label}</p>
+              <h3 className="editor-panel-label">{group.label}</h3>
               {group.nodes.map((node) => (
                 <button
                   key={node.type}
@@ -271,7 +271,10 @@ export function WorkflowEditorShell({ workflow }: Props) {
           <select
             className="editor-description-input"
             value={status}
-            onChange={(event) => handleStatusChange(event.target.value as StudioWorkflow["status"])}
+            onChange={(event) => {
+              const val = event.target.value;
+              if (val === "draft" || val === "active" || val === "paused") handleStatusChange(val);
+            }}
           >
             <option value="draft">Draft</option>
             <option value="active">Active</option>
@@ -287,7 +290,9 @@ export function WorkflowEditorShell({ workflow }: Props) {
             />
           ) : (
             <div className="editor-definition-state">
-              {detailState === "loading" ? "Loading node parameters…" : "Node parameters are unavailable."}
+              <span role="alert">
+                {detailState === "loading" ? "Loading node parameters…" : "Node parameters are unavailable."}
+              </span>
             </div>
           )}
         </div>

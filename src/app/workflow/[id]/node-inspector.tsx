@@ -317,8 +317,8 @@ function ScheduleTriggerForm({
       <div className={`schedule-preview ${errors.length ? "invalid" : ""}`}>
         <small>SCHEDULE PREVIEW</small>
         <strong>{describeSchedule(value)}</strong>
-        {errors.map((error) => (
-          <p key={error}>{error}</p>
+        {errors.map((error, i) => (
+          <p key={`${error}-${i}`}>{error}</p>
         ))}
       </div>
       <button type="button" className="inspector-reset" onClick={() => onChange({ ...defaultScheduleConfig })}>
