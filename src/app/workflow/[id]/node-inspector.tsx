@@ -227,10 +227,10 @@ export function NodeInspector({
                       try {
                         JSON.parse(draftPayload);
                         onConfigChange({ ...node.config, outputPayload: draftPayload });
+                        setEditingPayload(false);
                       } catch {
-                        /* don't save invalid JSON */
+                        setError("Invalid JSON payload — fix the syntax and try again.");
                       }
-                      setEditingPayload(false);
                     } else {
                       const current = node.config.outputPayload;
                       setDraftPayload(typeof current === "string" ? current : JSON.stringify(output, null, 2));
