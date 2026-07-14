@@ -219,7 +219,7 @@ export function NodeInspector({
         throw new Error(payload.error?.message ?? "Unable to start previous-node execution.");
 
       const executionId = payload.data.id as string;
-      for (let attempt = 0; attempt < 1920; attempt += 1) {
+      for (let attempt = 0; ; attempt += 1) {
         if (attempt > 0) await waitForExecutionPoll(controller.signal);
         const detailResponse = await fetch("/api/studio/admin", {
           method: "POST",
@@ -250,7 +250,6 @@ export function NodeInspector({
         if (detail.execution.status === "failed" || detail.execution.status === "cancelled")
           throw new Error(detail.execution.errorMessage || `Execution ${detail.execution.status}.`);
       }
-      throw new Error("Execution polling timed out after 16 minutes.");
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === "AbortError") return;
       setError(cause instanceof Error ? cause.message : "Previous-node execution failed.");
