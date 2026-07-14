@@ -195,12 +195,59 @@ export function NodeInspector({
         </header>
         {node.type === "http-request" ? (
           <div className="node-popup-body-http">
-            <div className="http-input-panel">
+            <div className="http-body-panel">
+              <div className="inspector-section-title">
+                <Braces size={14} /> Payload
+              </div>
+              <textarea
+                className="http-payload-editor"
+                rows={14}
+                value={(node.config.body as string) || ""}
+                onChange={(e) => onConfigChange({ ...node.config, body: e.target.value })}
+                placeholder='{"key": "value"}'
+              />
+            </div>
+            <div className="http-config-panel">
               <div className="inspector-form">
                 <div className="inspector-section-title">
-                  <Globe2 size={14} /> Request
+                  <Globe2 size={14} /> Endpoint
                 </div>
-                <HttpRequestForm config={node.config} onChange={onConfigChange} />
+                <label>
+                  Method
+                  <select
+                    value={(node.config.method as string) || "GET"}
+                    onChange={(e) => onConfigChange({ ...node.config, method: e.target.value })}
+                  >
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="DELETE">DELETE</option>
+                  </select>
+                </label>
+                <label>
+                  URL
+                  <input
+                    type="url"
+                    value={(node.config.url as string) || ""}
+                    onChange={(e) => onConfigChange({ ...node.config, url: e.target.value })}
+                    placeholder="https://api.example.com/data"
+                  />
+                </label>
+                <label>
+                  Headers (JSON)
+                  <textarea
+                    className="inspector-textarea"
+                    rows={4}
+                    value={
+                      typeof node.config.headers === "string"
+                        ? node.config.headers
+                        : JSON.stringify(node.config.headers || {}, null, 2)
+                    }
+                    onChange={(e) => onConfigChange({ ...node.config, headers: e.target.value })}
+                    placeholder='{"Content-Type": "application/json"}'
+                  />
+                </label>
               </div>
             </div>
             <div className="http-output-panel">
@@ -413,81 +460,6 @@ function OutputSchemaView({ data }: { data: unknown[] }) {
   }, [data]);
 
   return <pre className="node-popup-json">{schema}</pre>;
-}
-
-function HttpRequestForm({
-  config,
-  onChange,
-}: {
-  config: Record<string, unknown>;
-  onChange: (config: Record<string, unknown>) => void;
-}) {
-  const method = (config.method as string) || "GET";
-  const url = (config.url as string) || "";
-  const body = (config.body as string) || "";
-
-  const update = (patch: Record<string, unknown>) => onChange({ ...config, ...patch });
-
-  let headersObj: Record<string, string> = {};
-  let headerError = "";
-  try {
-    headersObj =
-      typeof config.headers === "string"
-        ? JSON.parse(config.headers)
-        : (config.headers as Record<string, string>) || {};
-  } catch {
-    headerError = "Headers must be valid JSON.";
-  }
-
-  return (
-    <div className="inspector-form">
-      <div className="inspector-section-title">
-        <Globe2 size={14} /> HTTP Request
-      </div>
-      <label>
-        Method
-        <select value={method} onChange={(e) => update({ method: e.target.value })}>
-          <option value="GET">GET</option>
-          <option value="POST">POST</option>
-          <option value="PUT">PUT</option>
-          <option value="PATCH">PATCH</option>
-          <option value="DELETE">DELETE</option>
-        </select>
-      </label>
-      <label>
-        URL
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => update({ url: e.target.value })}
-          placeholder="https://api.example.com/data"
-        />
-      </label>
-      <label>
-        Headers (JSON)
-        <textarea
-          className="inspector-textarea"
-          rows={4}
-          value={typeof config.headers === "string" ? config.headers : JSON.stringify(headersObj, null, 2)}
-          onChange={(e) => update({ headers: e.target.value })}
-          placeholder='{"Content-Type": "application/json"}'
-        />
-        {headerError ? <small className="inspector-error">{headerError}</small> : null}
-      </label>
-      {method !== "GET" && method !== "DELETE" && (
-        <label>
-          Body
-          <textarea
-            className="inspector-textarea"
-            rows={6}
-            value={body}
-            onChange={(e) => update({ body: e.target.value })}
-            placeholder='{"key": "value"}'
-          />
-        </label>
-      )}
-    </div>
-  );
 }
 
 function ScheduleTriggerForm({
