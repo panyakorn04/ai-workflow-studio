@@ -14,6 +14,15 @@ const httpRequestNode = {
     authMode: "none",
     headers: {},
     body: "",
+    queryParameters: [],
+    options: {
+      timeoutMs: 30000,
+      followRedirects: true,
+      maxRedirects: 5,
+      responseFormat: "auto",
+      includeResponseHeaders: true,
+      ignoreHttpStatusErrors: true,
+    },
   },
 };
 
@@ -39,7 +48,8 @@ describe("HTTP Request node editor", () => {
     expect(html).toContain("Send Query Parameters");
     expect(html).toContain("Send Headers");
     expect(html).toContain("Send Body");
-    expect(html).toContain("Add Option");
+    expect(html).toContain("Saved credential");
+    expect(html).toContain("Configure timeout, redirects, response format, and status handling in the Settings tab.");
     expect(html).toContain("No output data");
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("Previous-node execution is not available yet.");
@@ -57,7 +67,7 @@ describe("HTTP Request node editor", () => {
     );
 
     expect(html).toContain("Save your workflow changes before executing this node.");
-    expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
   test("uses Execute step consistently for the request actions", () => {

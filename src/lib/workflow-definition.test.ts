@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  defaultConfigForType,
   defaultWorkflowDefinition,
   describeSchedule,
+  httpRequestConfigFromRecord,
   isValidCronExpression,
   legacyLabelsToDefinition,
   parseWorkflowDefinition,
@@ -49,6 +51,28 @@ describe("workflow definition", () => {
     const dangling = legacyLabelsToDefinition(["Schedule"]);
     dangling.edges.push({ id: "bad", source: "node-0", target: "missing" });
     expect(() => parseWorkflowDefinition(dangling)).toThrow("unknown node");
+  });
+
+  test("normalizes the Phase 2 HTTP request contract and legacy defaults", () => {
+    const defaults = defaultConfigForType("http-request");
+    const config = httpRequestConfigFromRecord({
+      ...defaults,
+      queryParameters: [{ name: "limit", value: "10" }],
+      authMode: "credential",
+      credentialId: "cred-1",
+      options: { timeoutMs: 5000, followRedirects: false, responseFormat: "json" },
+    });
+    expect(config.queryParameters).toEqual([{ name: "limit", value: "10" }]);
+    expect(config.credentialId).toBe("cred-1");
+    expect(config.options).toMatchObject({
+      timeoutMs: 5000,
+      followRedirects: false,
+      maxRedirects: 5,
+      responseFormat: "json",
+      includeResponseHeaders: true,
+      ignoreHttpStatusErrors: true,
+    });
+    expect(httpRequestConfigFromRecord({ method: "GET", url: "https://example.com" }).options.timeoutMs).toBe(30000);
   });
 });
 

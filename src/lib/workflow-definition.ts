@@ -29,6 +29,43 @@ export type ScheduleTriggerConfig = {
   misfirePolicy: "skip" | "run-once";
 };
 
+export type HTTPRequestQueryParameter = { name: string; value: string };
+export type HTTPRequestOptions = {
+  timeoutMs: number;
+  followRedirects: boolean;
+  maxRedirects: number;
+  responseFormat: "auto" | "json" | "text";
+  includeResponseHeaders: boolean;
+  ignoreHttpStatusErrors: boolean;
+};
+export type HTTPRequestConfig = {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  url: string;
+  headers: Record<string, string> | string;
+  body: string;
+  queryParameters: HTTPRequestQueryParameter[];
+  authMode: "none" | "credential";
+  credentialId?: string;
+  options: HTTPRequestOptions;
+};
+
+export const defaultHTTPRequestConfig: HTTPRequestConfig = {
+  method: "GET",
+  url: "",
+  headers: {},
+  body: "",
+  queryParameters: [],
+  authMode: "none",
+  options: {
+    timeoutMs: 30000,
+    followRedirects: true,
+    maxRedirects: 5,
+    responseFormat: "auto",
+    includeResponseHeaders: true,
+    ignoreHttpStatusErrors: true,
+  },
+};
+
 export type WorkflowNodeDefinition = {
   id: string;
   type: WorkflowNodeType;
@@ -156,8 +193,68 @@ export function defaultConfigForType(type: WorkflowNodeType): Record<string, unk
   if (type === "manual") return { enabled: true };
   if (type === "webhook") return { enabled: true, method: "POST", authMode: "none", responseMode: "immediate" };
   if (type === "http-request")
-    return { method: "GET", url: "", headers: { "Content-Type": "application/json" }, body: "" };
+    return {
+      ...defaultHTTPRequestConfig,
+      headers: {},
+      queryParameters: [],
+      options: { ...defaultHTTPRequestConfig.options },
+    };
   return {};
+}
+
+export function httpRequestConfigFromRecord(config: Record<string, unknown>): HTTPRequestConfig {
+  const method = ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(String(config.method))
+    ? (config.method as HTTPRequestConfig["method"])
+    : "GET";
+  const queryParameters = Array.isArray(config.queryParameters)
+    ? config.queryParameters
+        .filter(
+          (item): item is HTTPRequestQueryParameter =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof (item as HTTPRequestQueryParameter).name === "string" &&
+            typeof (item as HTTPRequestQueryParameter).value === "string",
+        )
+        .map((item) => ({ ...item }))
+    : [];
+  const rawOptions = isRecord(config.options) ? config.options : {};
+  return {
+    method,
+    url: typeof config.url === "string" ? config.url : "",
+    headers:
+      typeof config.headers === "string" || isRecord(config.headers)
+        ? (config.headers as string | Record<string, string>)
+        : {},
+    body: typeof config.body === "string" ? config.body : "",
+    queryParameters,
+    authMode: config.authMode === "credential" ? "credential" : "none",
+    credentialId: typeof config.credentialId === "string" ? config.credentialId : undefined,
+    options: {
+      timeoutMs:
+        Number.isInteger(rawOptions.timeoutMs) && Number(rawOptions.timeoutMs) >= 1000
+          ? Number(rawOptions.timeoutMs)
+          : defaultHTTPRequestConfig.options.timeoutMs,
+      followRedirects:
+        typeof rawOptions.followRedirects === "boolean"
+          ? rawOptions.followRedirects
+          : defaultHTTPRequestConfig.options.followRedirects,
+      maxRedirects:
+        Number.isInteger(rawOptions.maxRedirects) && Number(rawOptions.maxRedirects) >= 0
+          ? Number(rawOptions.maxRedirects)
+          : defaultHTTPRequestConfig.options.maxRedirects,
+      responseFormat: ["auto", "json", "text"].includes(String(rawOptions.responseFormat))
+        ? (rawOptions.responseFormat as HTTPRequestOptions["responseFormat"])
+        : "auto",
+      includeResponseHeaders:
+        typeof rawOptions.includeResponseHeaders === "boolean"
+          ? rawOptions.includeResponseHeaders
+          : defaultHTTPRequestConfig.options.includeResponseHeaders,
+      ignoreHttpStatusErrors:
+        typeof rawOptions.ignoreHttpStatusErrors === "boolean"
+          ? rawOptions.ignoreHttpStatusErrors
+          : defaultHTTPRequestConfig.options.ignoreHttpStatusErrors,
+    },
+  };
 }
 
 export function legacyLabelsToDefinition(labels: string[]): WorkflowDefinitionV1 {

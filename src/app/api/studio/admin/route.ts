@@ -21,17 +21,45 @@ export async function POST(request: Request) {
     "approve",
     "create-execution",
     "execute-node",
+    "execute-http-request",
+    "import-curl",
+    "create-credential",
+    "update-credential",
+    "delete-credential",
+    "test-credential",
     "create-workflow",
     "update-workflow",
   ]);
+  const idActions = new Set([
+    "pause",
+    "retry",
+    "cancel",
+    "approve",
+    "update-workflow",
+    "update-credential",
+    "delete-credential",
+    "test-credential",
+  ]);
+  const payloadActions = new Set(["create-workflow", "update-workflow", "create-credential", "update-credential"]);
   if (
     !command ||
     typeof command !== "object" ||
     !allowed.has(command.action) ||
-    ("id" in command && typeof command.id !== "string") ||
+    (idActions.has(command.action) &&
+      (!("id" in command) || typeof command.id !== "string" || !command.id.trim() || command.id.length > 128)) ||
+    (payloadActions.has(command.action) &&
+      (!("payload" in command) ||
+        typeof command.payload !== "object" ||
+        command.payload === null ||
+        Array.isArray(command.payload))) ||
+    (command.action === "import-curl" &&
+      (!("command" in command) ||
+        typeof command.command !== "string" ||
+        !command.command.trim() ||
+        command.command.length > 16384)) ||
     (command.action === "create-execution" &&
       (!("workflowId" in command) || typeof command.workflowId !== "string" || !command.workflowId.trim())) ||
-    (command.action === "execute-node" &&
+    ((command.action === "execute-node" || command.action === "execute-http-request") &&
       (!("workflowId" in command) ||
         typeof command.workflowId !== "string" ||
         !command.workflowId.trim() ||
@@ -54,7 +82,7 @@ export async function POST(request: Request) {
       headers: { Cookie: sessionCookie, "Content-Type": "application/json" },
       body: target.body ? JSON.stringify(target.body) : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(command.action === "execute-http-request" ? 35000 : 10000),
     });
     const data = await response
       .json()

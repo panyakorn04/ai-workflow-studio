@@ -11,12 +11,17 @@ import {
   Plus,
   Settings2,
   Table2,
+  Trash2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { StudioCredential, StudioCredentialType } from "@/lib/studio-admin";
 import {
   defaultScheduleConfig,
   describeSchedule,
+  type HTTPRequestConfig,
+  type HTTPRequestQueryParameter,
+  httpRequestConfigFromRecord,
   type ScheduleTriggerConfig,
   validateScheduleConfig,
   type WorkflowNodeDefinition,
@@ -427,13 +432,44 @@ function HttpRequestWorkspace({
   onExecute: () => void;
   onConfigChange: (config: Record<string, unknown>) => void;
 }) {
+  const requestConfig = useMemo(() => httpRequestConfigFromRecord(node.config), [node.config]);
   const headerText =
-    typeof node.config.headers === "string" ? node.config.headers : JSON.stringify(node.config.headers || {}, null, 2);
-  const bodyText = typeof node.config.body === "string" ? node.config.body : "";
-  const [showQueryParameters, setShowQueryParameters] = useState(false);
+    typeof requestConfig.headers === "string"
+      ? requestConfig.headers
+      : JSON.stringify(requestConfig.headers || {}, null, 2);
+  const bodyText = requestConfig.body;
+  const [showQueryParameters, setShowQueryParameters] = useState(requestConfig.queryParameters.length > 0);
   const [showHeaders, setShowHeaders] = useState(headerText !== "{}" && headerText.trim() !== "");
   const [showBody, setShowBody] = useState(bodyText.trim() !== "");
   const [inputFormat, setInputFormat] = useState<"json" | "table" | "schema">("json");
+  const [credentials, setCredentials] = useState<StudioCredential[]>([]);
+  const [credentialsError, setCredentialsError] = useState("");
+  const [showCredentialForm, setShowCredentialForm] = useState(false);
+  const [credentialAction, setCredentialAction] = useState(false);
+  const [showCurlImport, setShowCurlImport] = useState(false);
+  const [curlCommand, setCurlCommand] = useState("");
+  const [curlWarnings, setCurlWarnings] = useState<string[]>([]);
+  const [importingCurl, setImportingCurl] = useState(false);
+
+  const saveRequestConfig = (patch: Partial<HTTPRequestConfig>) => {
+    onConfigChange({ ...node.config, ...requestConfig, ...patch });
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/studio/credentials", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to load credentials.");
+        setCredentials(Array.isArray(payload.data) ? payload.data : []);
+        setCredentialsError("");
+      })
+      .catch((cause) => {
+        if (cause instanceof DOMException && cause.name === "AbortError") return;
+        setCredentialsError(cause instanceof Error ? cause.message : "Unable to load credentials.");
+      });
+    return () => controller.abort();
+  }, []);
 
   const executeLabel = executing ? "Executing…" : "Execute step";
   const emptyExecutionHint = canExecute ? "" : "Save your workflow changes before executing this node.";
@@ -449,6 +485,77 @@ function HttpRequestWorkspace({
     } catch {
       setError("Invalid JSON payload — fix the syntax and try again.");
       return null;
+    }
+  };
+
+  const importCurl = async () => {
+    if (!curlCommand.trim()) return;
+    setImportingCurl(true);
+    setError("");
+    try {
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "import-curl", command: curlCommand }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to import cURL command.");
+      const imported = payload.data as {
+        method: HTTPRequestConfig["method"];
+        url: string;
+        headers: Record<string, string>;
+        body: string;
+        queryParameters: HTTPRequestQueryParameter[];
+        warnings?: string[];
+      };
+      saveRequestConfig({
+        method: imported.method,
+        url: imported.url,
+        headers: imported.headers,
+        body: imported.body,
+        queryParameters: imported.queryParameters,
+      });
+      setShowHeaders(Object.keys(imported.headers || {}).length > 0);
+      setShowBody(Boolean(imported.body));
+      setShowQueryParameters((imported.queryParameters || []).length > 0);
+      setCurlWarnings(imported.warnings || []);
+      setCurlCommand("");
+      setShowCurlImport(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to import cURL command.");
+    } finally {
+      setImportingCurl(false);
+    }
+  };
+
+  const runCredentialAction = async (action: "test-credential" | "delete-credential") => {
+    if (!requestConfig.credentialId) return;
+    if (
+      action === "delete-credential" &&
+      !window.confirm("Delete this saved credential? Workflows using it will stop executing.")
+    )
+      return;
+    setCredentialAction(true);
+    setCredentialsError("");
+    try {
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id: requestConfig.credentialId }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Credential action failed.");
+      if (action === "delete-credential") {
+        setCredentials((items) => items.filter((item) => item.id !== requestConfig.credentialId));
+        saveRequestConfig({ authMode: "none", credentialId: undefined });
+        setCredentialsError("Credential deleted.");
+      } else {
+        setCredentialsError("Credential encryption and schema are valid.");
+      }
+    } catch (cause) {
+      setCredentialsError(cause instanceof Error ? cause.message : "Credential action failed.");
+    } finally {
+      setCredentialAction(false);
     }
   };
 
@@ -511,23 +618,123 @@ function HttpRequestWorkspace({
         </div>
         <div className="http-parameter-content">
           {activeTab === "settings" ? (
-            <div className="node-popup-empty-copy">
-              <strong>Node settings</strong>
-              <p>Runtime retry and timeout settings will appear here when the workflow executor supports them.</p>
+            <div className="inspector-form http-request-form">
+              <label>
+                Timeout (milliseconds)
+                <input
+                  type="number"
+                  min={1000}
+                  max={30000}
+                  step={500}
+                  value={requestConfig.options.timeoutMs}
+                  onChange={(event) =>
+                    saveRequestConfig({
+                      options: { ...requestConfig.options, timeoutMs: Number(event.target.value) },
+                    })
+                  }
+                />
+              </label>
+              <HttpOptionToggle
+                label="Follow redirects"
+                checked={requestConfig.options.followRedirects}
+                onChange={(checked) =>
+                  saveRequestConfig({ options: { ...requestConfig.options, followRedirects: checked } })
+                }
+              />
+              <label>
+                Maximum redirects
+                <input
+                  type="number"
+                  min={0}
+                  max={5}
+                  value={requestConfig.options.maxRedirects}
+                  disabled={!requestConfig.options.followRedirects}
+                  onChange={(event) =>
+                    saveRequestConfig({
+                      options: { ...requestConfig.options, maxRedirects: Number(event.target.value) },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Response format
+                <select
+                  value={requestConfig.options.responseFormat}
+                  onChange={(event) =>
+                    saveRequestConfig({
+                      options: {
+                        ...requestConfig.options,
+                        responseFormat: event.target.value as HTTPRequestConfig["options"]["responseFormat"],
+                      },
+                    })
+                  }
+                >
+                  <option value="auto">Auto detect</option>
+                  <option value="json">JSON</option>
+                  <option value="text">Text</option>
+                </select>
+              </label>
+              <HttpOptionToggle
+                label="Include response headers"
+                checked={requestConfig.options.includeResponseHeaders}
+                onChange={(checked) =>
+                  saveRequestConfig({ options: { ...requestConfig.options, includeResponseHeaders: checked } })
+                }
+              />
+              <HttpOptionToggle
+                label="Return non-2xx/3xx responses as output"
+                checked={requestConfig.options.ignoreHttpStatusErrors}
+                onChange={(checked) =>
+                  saveRequestConfig({ options: { ...requestConfig.options, ignoreHttpStatusErrors: checked } })
+                }
+              />
             </div>
           ) : (
             <>
               <div className="http-import-row">
-                <button type="button" className="http-secondary-button" disabled title="cURL import is coming soon">
+                <button
+                  type="button"
+                  className="http-secondary-button"
+                  onClick={() => setShowCurlImport((open) => !open)}
+                >
                   Import cURL
                 </button>
               </div>
+              {showCurlImport ? (
+                <div className="http-curl-import">
+                  <label>
+                    cURL command
+                    <textarea
+                      className="inspector-textarea"
+                      rows={5}
+                      value={curlCommand}
+                      onChange={(event) => setCurlCommand(event.target.value)}
+                      placeholder="curl 'https://api.example.com/items'"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="manual-execute"
+                    onClick={importCurl}
+                    disabled={importingCurl || !curlCommand.trim()}
+                  >
+                    {importingCurl ? "Importing…" : "Import request"}
+                  </button>
+                </div>
+              ) : null}
+              {curlWarnings.map((warning) => (
+                <div key={warning} className="http-request-note" role="status">
+                  {warning}
+                </div>
+              ))}
               <div className="inspector-form http-request-form">
                 <label>
                   Method
                   <select
-                    value={(node.config.method as string) || "GET"}
-                    onChange={(event) => onConfigChange({ ...node.config, method: event.target.value })}
+                    value={requestConfig.method}
+                    onChange={(event) =>
+                      saveRequestConfig({ method: event.target.value as HTTPRequestConfig["method"] })
+                    }
                   >
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
@@ -540,26 +747,148 @@ function HttpRequestWorkspace({
                   URL
                   <input
                     type="url"
-                    value={(node.config.url as string) || ""}
-                    onChange={(event) => onConfigChange({ ...node.config, url: event.target.value })}
+                    value={requestConfig.url}
+                    onChange={(event) => saveRequestConfig({ url: event.target.value })}
                     placeholder="https://api.example.com/data"
                   />
                 </label>
                 <label>
                   Authentication
-                  <select value="none" disabled>
+                  <select
+                    value={requestConfig.authMode}
+                    onChange={(event) => {
+                      const authMode = event.target.value as HTTPRequestConfig["authMode"];
+                      saveRequestConfig({
+                        authMode,
+                        credentialId: authMode === "credential" ? requestConfig.credentialId : undefined,
+                      });
+                    }}
+                  >
                     <option value="none">None</option>
+                    <option value="credential">Saved credential</option>
                   </select>
                 </label>
+                {requestConfig.authMode === "credential" ? (
+                  <label>
+                    Credential
+                    <select
+                      value={requestConfig.credentialId || ""}
+                      onChange={(event) => saveRequestConfig({ credentialId: event.target.value })}
+                    >
+                      <option value="">Select a credential</option>
+                      {credentials.map((credential) => (
+                        <option key={credential.id} value={credential.id}>
+                          {credential.name} ({credential.type})
+                        </option>
+                      ))}
+                    </select>
+                    {credentialsError ? (
+                      <span className="http-field-error" role="status">
+                        {credentialsError}
+                      </span>
+                    ) : null}
+                    <span className="http-inline-actions">
+                      <button
+                        type="button"
+                        className="http-secondary-button"
+                        onClick={() => setShowCredentialForm((open) => !open)}
+                      >
+                        <Plus size={12} /> New credential
+                      </button>
+                      <button
+                        type="button"
+                        className="http-secondary-button"
+                        disabled={!requestConfig.credentialId || credentialAction}
+                        onClick={() => runCredentialAction("test-credential")}
+                      >
+                        Test
+                      </button>
+                      <button
+                        type="button"
+                        className="http-icon-button"
+                        aria-label="Delete selected credential"
+                        disabled={!requestConfig.credentialId || credentialAction}
+                        onClick={() => runCredentialAction("delete-credential")}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </span>
+                  </label>
+                ) : null}
+                {showCredentialForm ? (
+                  <CredentialCreateForm
+                    onCancel={() => setShowCredentialForm(false)}
+                    onCreated={(credential) => {
+                      setCredentials((items) => [credential, ...items]);
+                      saveRequestConfig({ authMode: "credential", credentialId: credential.id });
+                      setShowCredentialForm(false);
+                    }}
+                  />
+                ) : null}
 
                 <HttpOptionToggle
                   label="Send Query Parameters"
                   checked={showQueryParameters}
-                  onChange={setShowQueryParameters}
+                  onChange={(checked) => {
+                    setShowQueryParameters(checked);
+                    if (!checked) saveRequestConfig({ queryParameters: [] });
+                    if (checked && requestConfig.queryParameters.length === 0)
+                      saveRequestConfig({ queryParameters: [{ name: "", value: "" }] });
+                  }}
                 />
                 {showQueryParameters ? (
-                  <div className="http-option-placeholder">
-                    Query parameter editing will be available with the runtime contract.
+                  <div className="http-key-value-list">
+                    {requestConfig.queryParameters.map((parameter, index) => (
+                      <div className="http-key-value-row" key={`${index}-${parameter.name}`}>
+                        <input
+                          aria-label={`Query parameter ${index + 1} name`}
+                          value={parameter.name}
+                          placeholder="Name"
+                          onChange={(event) => {
+                            const queryParameters = requestConfig.queryParameters.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, name: event.target.value } : item,
+                            );
+                            saveRequestConfig({ queryParameters });
+                          }}
+                        />
+                        <input
+                          aria-label={`Query parameter ${index + 1} value`}
+                          value={parameter.value}
+                          placeholder="Value"
+                          onChange={(event) => {
+                            const queryParameters = requestConfig.queryParameters.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, value: event.target.value } : item,
+                            );
+                            saveRequestConfig({ queryParameters });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="http-icon-button"
+                          aria-label={`Remove query parameter ${index + 1}`}
+                          onClick={() =>
+                            saveRequestConfig({
+                              queryParameters: requestConfig.queryParameters.filter(
+                                (_, itemIndex) => itemIndex !== index,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="http-secondary-button"
+                      onClick={() =>
+                        saveRequestConfig({
+                          queryParameters: [...requestConfig.queryParameters, { name: "", value: "" }],
+                        })
+                      }
+                    >
+                      <Plus size={13} /> Add parameter
+                    </button>
                   </div>
                 ) : null}
 
@@ -568,7 +897,7 @@ function HttpRequestWorkspace({
                   checked={showHeaders}
                   onChange={(checked) => {
                     setShowHeaders(checked);
-                    if (!checked) onConfigChange({ ...node.config, headers: {} });
+                    if (!checked) saveRequestConfig({ headers: {} });
                   }}
                 />
                 {showHeaders ? (
@@ -578,7 +907,7 @@ function HttpRequestWorkspace({
                       className="inspector-textarea"
                       rows={4}
                       value={headerText}
-                      onChange={(event) => onConfigChange({ ...node.config, headers: event.target.value })}
+                      onChange={(event) => saveRequestConfig({ headers: event.target.value })}
                       placeholder='{"Content-Type": "application/json"}'
                     />
                   </label>
@@ -589,7 +918,7 @@ function HttpRequestWorkspace({
                   checked={showBody}
                   onChange={(checked) => {
                     setShowBody(checked);
-                    if (!checked) onConfigChange({ ...node.config, body: "" });
+                    if (!checked) saveRequestConfig({ body: "" });
                   }}
                 />
                 {showBody ? (
@@ -599,21 +928,14 @@ function HttpRequestWorkspace({
                       className="inspector-textarea"
                       rows={6}
                       value={bodyText}
-                      onChange={(event) => onConfigChange({ ...node.config, body: event.target.value })}
+                      onChange={(event) => saveRequestConfig({ body: event.target.value })}
                       placeholder='{"key": "value"}'
                     />
                   </label>
                 ) : null}
 
-                <div className="http-options-heading">
-                  <span>Options</span>
-                  <Plus size={14} />
-                </div>
-                <button type="button" className="http-secondary-button http-add-option" disabled>
-                  <Plus size={13} /> Add Option
-                </button>
                 <div className="http-request-note">
-                  You can inspect the raw request this node makes in your browser&apos;s developer console.
+                  Configure timeout, redirects, response format, and status handling in the Settings tab.
                 </div>
                 {!canExecute ? (
                   <div className="manual-output-error" role="alert">
@@ -700,6 +1022,115 @@ function HttpRequestWorkspace({
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function CredentialCreateForm({
+  onCreated,
+  onCancel,
+}: {
+  onCreated: (credential: StudioCredential) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<StudioCredentialType>("bearer");
+  const [firstValue, setFirstValue] = useState("");
+  const [secondValue, setSecondValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const firstLabel = type === "bearer" ? "Token" : type === "basic" ? "Username" : "Parameter/header name";
+  const secondLabel = type === "basic" ? "Password" : "Value";
+
+  const createCredential = async () => {
+    setSaving(true);
+    setFormError("");
+    try {
+      const data =
+        type === "bearer"
+          ? { token: firstValue }
+          : type === "basic"
+            ? { username: firstValue, password: secondValue }
+            : { name: firstValue, value: secondValue };
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-credential", payload: { name, type, data } }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to create credential.");
+      setFirstValue("");
+      setSecondValue("");
+      onCreated(payload.data as StudioCredential);
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : "Unable to create credential.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="http-credential-form">
+      <strong>New encrypted credential</strong>
+      <label>
+        Name
+        <input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} />
+      </label>
+      <label>
+        Type
+        <select
+          value={type}
+          onChange={(event) => {
+            setType(event.target.value as StudioCredentialType);
+            setFirstValue("");
+            setSecondValue("");
+          }}
+        >
+          <option value="bearer">Bearer token</option>
+          <option value="basic">Basic authentication</option>
+          <option value="header">Header/API key</option>
+          <option value="query">Query API key</option>
+        </select>
+      </label>
+      <label>
+        {firstLabel}
+        <input
+          type={type === "bearer" ? "password" : "text"}
+          autoComplete="off"
+          value={firstValue}
+          onChange={(event) => setFirstValue(event.target.value)}
+        />
+      </label>
+      {type !== "bearer" ? (
+        <label>
+          {secondLabel}
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={secondValue}
+            onChange={(event) => setSecondValue(event.target.value)}
+          />
+        </label>
+      ) : null}
+      {formError ? (
+        <span className="http-field-error" role="alert">
+          {formError}
+        </span>
+      ) : null}
+      <div className="http-inline-actions">
+        <button
+          type="button"
+          className="manual-execute"
+          disabled={saving || name.trim().length < 2 || !firstValue || (type !== "bearer" && !secondValue)}
+          onClick={createCredential}
+        >
+          {saving ? "Saving…" : "Save credential"}
+        </button>
+        <button type="button" className="http-secondary-button" disabled={saving} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+      <small>Secret values are encrypted by the backend and are never returned to this browser.</small>
     </div>
   );
 }

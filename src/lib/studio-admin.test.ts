@@ -31,4 +31,21 @@ describe("studio admin command mapping", () => {
       body: undefined,
     });
   });
+  test("maps HTTP execution, cURL import, and credential commands", () => {
+    expect(studioAdminTarget({ action: "execute-http-request", workflowId: "wf/1", nodeId: "request 1" })).toEqual({
+      method: "POST",
+      path: "/api/admin/studio/workflows/wf%2F1/nodes/request%201/http-request",
+      body: undefined,
+    });
+    expect(studioAdminTarget({ action: "import-curl", command: "curl https://example.com" })).toEqual({
+      method: "POST",
+      path: "/api/admin/studio/http-request/import-curl",
+      body: { command: "curl https://example.com" },
+    });
+    expect(studioAdminTarget({ action: "delete-credential", id: "cred/1" })).toEqual({
+      method: "DELETE",
+      path: "/api/admin/studio/credentials/cred%2F1",
+      body: undefined,
+    });
+  });
 });
