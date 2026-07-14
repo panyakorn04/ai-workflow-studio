@@ -26,11 +26,28 @@ const httpRequestNode = {
   },
 };
 
+const definition = {
+  version: 1 as const,
+  nodes: [
+    {
+      id: "manual-trigger",
+      type: "manual" as const,
+      kind: "trigger" as const,
+      label: "Manual Test Trigger",
+      position: { x: 0, y: 70 },
+      config: { enabled: true, outputPayload: "[]" },
+    },
+    httpRequestNode,
+  ],
+  edges: [{ id: "manual-to-http", source: "manual-trigger", target: httpRequestNode.id }],
+};
+
 describe("HTTP Request node editor", () => {
   test("renders the n8n-style input, parameters, and output workspace", () => {
     const html = renderToStaticMarkup(
       <NodeInspector
         node={httpRequestNode}
+        definition={definition}
         workflowId="workflow-1"
         hasUnsavedChanges={false}
         onClose={() => {}}
@@ -59,6 +76,7 @@ describe("HTTP Request node editor", () => {
     const html = renderToStaticMarkup(
       <NodeInspector
         node={httpRequestNode}
+        definition={definition}
         workflowId="workflow-1"
         hasUnsavedChanges
         onClose={() => {}}
@@ -74,6 +92,7 @@ describe("HTTP Request node editor", () => {
     const html = renderToStaticMarkup(
       <NodeInspector
         node={httpRequestNode}
+        definition={definition}
         workflowId="workflow-1"
         hasUnsavedChanges={false}
         onClose={() => {}}

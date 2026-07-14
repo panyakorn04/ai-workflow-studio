@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { type StudioAdminCommand, studioAdminTarget } from "@/lib/studio-admin";
 import { cookieHeaderForBackend, studioBackendURL } from "@/lib/studio-session";
 
+function validBoundedString(value: unknown, maximum = 128) {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= maximum;
+}
+
+function validOptionalBoundedString(value: unknown, maximum = 128) {
+  return value === undefined || validBoundedString(value, maximum);
+}
+
 export async function POST(request: Request) {
   const sessionCookie = cookieHeaderForBackend(request);
   if (!sessionCookie) {
@@ -63,16 +71,16 @@ export async function POST(request: Request) {
         !command.command.trim() ||
         command.command.length > 16384)) ||
     (command.action === "create-execution" &&
-      (!("workflowId" in command) || typeof command.workflowId !== "string" || !command.workflowId.trim())) ||
+      (!validBoundedString(command.workflowId) ||
+        !validOptionalBoundedString(command.triggerNodeId) ||
+        !validOptionalBoundedString(command.sourceKey, 160))) ||
     ((command.action === "execute-node" ||
       command.action === "execute-http-request" ||
       command.action === "execute-previous") &&
-      (!("workflowId" in command) ||
-        typeof command.workflowId !== "string" ||
-        !command.workflowId.trim() ||
-        !("nodeId" in command) ||
-        typeof command.nodeId !== "string" ||
-        !command.nodeId.trim()))
+      (!validBoundedString(command.workflowId) ||
+        !validBoundedString(command.nodeId) ||
+        (command.action === "execute-previous" &&
+          (!validOptionalBoundedString(command.triggerNodeId) || !validOptionalBoundedString(command.sourceKey, 160)))))
   ) {
     return NextResponse.json({ ok: false, error: { message: "Unsupported command." } }, { status: 400 });
   }

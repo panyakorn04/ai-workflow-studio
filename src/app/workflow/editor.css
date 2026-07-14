@@ -138,6 +138,18 @@
   cursor: not-allowed;
 }
 
+.editor-trigger-select {
+  max-width: 180px;
+  min-height: 32px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
 .editor-divider {
   width: 1px;
   height: 20px;

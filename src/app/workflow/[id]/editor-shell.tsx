@@ -88,6 +88,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
   const [selectedNodeID, setSelectedNodeID] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
+  const [selectedRunTriggerId, setSelectedRunTriggerId] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [detailState, setDetailState] = useState<"loading" | "ready" | "error">(isNew ? "ready" : "loading");
@@ -125,6 +126,17 @@ export function WorkflowEditorShell({ workflow }: Props) {
   }, [workflow?.id]);
 
   const issues = useMemo(() => definitionIssues(definition), [definition]);
+  const runTriggers = useMemo(
+    () => definition.nodes.filter((node) => node.kind === "trigger" && node.config.enabled === true),
+    [definition.nodes],
+  );
+  useEffect(() => {
+    setSelectedRunTriggerId((current) =>
+      runTriggers.some((trigger) => trigger.id === current)
+        ? current
+        : (runTriggers.find((trigger) => trigger.type === "manual")?.id ?? runTriggers[0]?.id ?? ""),
+    );
+  }, [runTriggers]);
   const selectedNode = definition.nodes.find((node) => node.id === selectedNodeID) ?? null;
   const goBack = useCallback(() => router.push("/"), [router]);
   const addNode = useCallback((type: WorkflowNodeType, label: string) => canvasRef.current?.addNode(type, label), []);
@@ -196,8 +208,12 @@ export function WorkflowEditorShell({ workflow }: Props) {
   }, [name, definition, description, workflow, status, issues, isNew, router, detailState]);
 
   const handleRun = useCallback(async () => {
-    if (!workflow?.id || definitionDirty || issues.length > 0) {
-      setSaveError("Save a valid workflow before running it.");
+    if (!workflow?.id || definitionDirty || issues.length > 0 || !selectedRunTriggerId) {
+      setSaveError(
+        !selectedRunTriggerId
+          ? "Select an enabled trigger before running this workflow."
+          : "Save a valid workflow before running it.",
+      );
       return;
     }
     setRunning(true);
@@ -209,6 +225,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
         body: JSON.stringify({
           action: "create-execution",
           workflowId: workflow.id,
+          triggerNodeId: selectedRunTriggerId,
           sourceKey: crypto.randomUUID(),
         }),
       });
@@ -220,7 +237,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
     } finally {
       setRunning(false);
     }
-  }, [workflow?.id, definitionDirty, issues.length]);
+  }, [workflow?.id, definitionDirty, issues.length, selectedRunTriggerId]);
 
   const handleDelete = useCallback(async () => {
     if (!workflow?.id || !window.confirm(`Delete “${name}” and its execution history? This cannot be undone.`)) return;
@@ -290,11 +307,26 @@ export function WorkflowEditorShell({ workflow }: Props) {
             </button>
           )}
           <div className="editor-divider" />
+          {runTriggers.length > 1 ? (
+            <select
+              className="editor-trigger-select"
+              aria-label="Workflow run trigger"
+              value={selectedRunTriggerId}
+              onChange={(event) => setSelectedRunTriggerId(event.target.value)}
+              disabled={running}
+            >
+              {runTriggers.map((trigger) => (
+                <option key={trigger.id} value={trigger.id}>
+                  {trigger.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <button
             type="button"
             className="editor-btn editor-run"
             title={definitionDirty ? "Save changes before running" : "Execute workflow"}
-            disabled={!workflow?.id || issues.length > 0 || definitionDirty || running}
+            disabled={!workflow?.id || issues.length > 0 || definitionDirty || running || !selectedRunTriggerId}
             onClick={handleRun}
           >
             <Play size={14} />
@@ -368,6 +400,7 @@ export function WorkflowEditorShell({ workflow }: Props) {
           <NodeInspector
             key={selectedNode?.id}
             node={selectedNode}
+            definition={definition}
             workflowId={workflow?.id}
             hasUnsavedChanges={definitionDirty}
             onClose={() => setSelectedNodeID(null)}

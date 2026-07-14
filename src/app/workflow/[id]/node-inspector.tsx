@@ -24,19 +24,36 @@ import {
   httpRequestConfigFromRecord,
   type ScheduleTriggerConfig,
   validateScheduleConfig,
+  type WorkflowDefinitionV1,
   type WorkflowNodeDefinition,
 } from "@/lib/workflow-definition";
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function waitForExecutionPoll(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException("Execution polling aborted", "AbortError"));
+    };
+    const timer = window.setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, 500);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 export function NodeInspector({
   node,
+  definition,
   workflowId,
   hasUnsavedChanges,
   onClose,
   onConfigChange,
 }: {
   node: WorkflowNodeDefinition | null;
+  definition: WorkflowDefinitionV1;
   workflowId?: string;
   hasUnsavedChanges: boolean;
   onClose: () => void;
@@ -52,6 +69,13 @@ export function NodeInspector({
   const [editingPayload, setEditingPayload] = useState(false);
   const [draftPayload, setDraftPayload] = useState("");
   const dialogRef = useRef<HTMLElement>(null);
+  const executionAbortRef = useRef<AbortController | null>(null);
+  const enabledTriggers = useMemo(
+    () => definition.nodes.filter((item) => item.kind === "trigger" && item.config.enabled === true),
+    [definition.nodes],
+  );
+  const defaultTriggerId = enabledTriggers.find((item) => item.type === "manual")?.id ?? enabledTriggers[0]?.id ?? "";
+  const [selectedTriggerId, setSelectedTriggerId] = useState(defaultTriggerId);
 
   const syncOutputFromPayload = useCallback((payload: string | undefined) => {
     if (typeof payload === "string" && payload.trim()) {
@@ -67,6 +91,11 @@ export function NodeInspector({
   }, []);
 
   useEffect(() => {
+    executionAbortRef.current?.abort();
+    executionAbortRef.current = null;
+    setSelectedTriggerId((current) =>
+      enabledTriggers.some((trigger) => trigger.id === current) ? current : defaultTriggerId,
+    );
     if (node?.type === "http-request") {
       setInput([]);
       setOutput([]);
@@ -74,7 +103,9 @@ export function NodeInspector({
       return;
     }
     syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
-  }, [node?.config?.outputPayload, node?.type, syncOutputFromPayload]);
+  }, [defaultTriggerId, enabledTriggers, node?.config?.outputPayload, node?.type, syncOutputFromPayload]);
+
+  useEffect(() => () => executionAbortRef.current?.abort(), []);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -154,12 +185,21 @@ export function NodeInspector({
   };
 
   const executeHttpRequest = async () => {
-    if (!workflowId || hasUnsavedChanges) {
-      setError("Save your workflow changes before executing this node.");
+    if (!workflowId || hasUnsavedChanges || !selectedTriggerId) {
+      setError(
+        !selectedTriggerId
+          ? "Select an enabled trigger before executing this node."
+          : "Save your workflow changes before executing this node.",
+      );
       return;
     }
+    executionAbortRef.current?.abort();
+    const controller = new AbortController();
+    executionAbortRef.current = controller;
     setExecuting(true);
     setError("");
+    setInput([]);
+    setOutput([]);
     setExecutionStatus("Queuing previous nodes…");
     try {
       const response = await fetch("/api/studio/admin", {
@@ -169,20 +209,23 @@ export function NodeInspector({
           action: "execute-previous",
           workflowId,
           nodeId: node.id,
+          triggerNodeId: selectedTriggerId || undefined,
           sourceKey: crypto.randomUUID(),
         }),
+        signal: controller.signal,
       });
       const payload = await response.json();
       if (!response.ok || !payload.ok || typeof payload.data?.id !== "string")
         throw new Error(payload.error?.message ?? "Unable to start previous-node execution.");
 
       const executionId = payload.data.id as string;
-      for (let attempt = 0; attempt < 140; attempt += 1) {
-        if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, 500));
+      for (let attempt = 0; attempt < 1920; attempt += 1) {
+        if (attempt > 0) await waitForExecutionPoll(controller.signal);
         const detailResponse = await fetch("/api/studio/admin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-execution", id: executionId }),
+          signal: controller.signal,
         });
         const detailPayload = await detailResponse.json();
         if (!detailResponse.ok || !detailPayload.ok)
@@ -191,7 +234,10 @@ export function NodeInspector({
         const currentStage = detail.stages.find((stage) => stage.nodeId === node.id);
         if (currentStage) {
           setInput(Array.isArray(currentStage.input) ? currentStage.input : []);
-          if (Array.isArray(currentStage.output)) setOutput(currentStage.output);
+          setOutput(Array.isArray(currentStage.output) ? currentStage.output : []);
+        } else {
+          setInput([]);
+          setOutput([]);
         }
         setExecutionStatus(
           detail.execution.status === "queued"
@@ -204,11 +250,15 @@ export function NodeInspector({
         if (detail.execution.status === "failed" || detail.execution.status === "cancelled")
           throw new Error(detail.execution.errorMessage || `Execution ${detail.execution.status}.`);
       }
-      throw new Error("Execution is still running. Reopen this node to refresh its latest data.");
+      throw new Error("Execution polling timed out after 16 minutes.");
     } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "AbortError") return;
       setError(cause instanceof Error ? cause.message : "Previous-node execution failed.");
     } finally {
-      setExecuting(false);
+      if (executionAbortRef.current === controller) {
+        executionAbortRef.current = null;
+        setExecuting(false);
+      }
     }
   };
 
@@ -301,6 +351,9 @@ export function NodeInspector({
             setOutput={setOutput}
             input={input}
             executionStatus={executionStatus}
+            triggers={enabledTriggers}
+            selectedTriggerId={selectedTriggerId}
+            onTriggerChange={setSelectedTriggerId}
             outputFormat={outputFormat}
             setOutputFormat={setOutputFormat}
             editingPayload={editingPayload}
@@ -310,7 +363,7 @@ export function NodeInspector({
             error={error}
             setError={setError}
             executing={executing}
-            canExecute={Boolean(workflowId) && !hasUnsavedChanges}
+            canExecute={Boolean(workflowId) && !hasUnsavedChanges && Boolean(selectedTriggerId)}
             onExecute={executeHttpRequest}
             onConfigChange={onConfigChange}
           />
@@ -445,6 +498,9 @@ function HttpRequestWorkspace({
   setOutput,
   input,
   executionStatus,
+  triggers,
+  selectedTriggerId,
+  onTriggerChange,
   outputFormat,
   setOutputFormat,
   editingPayload,
@@ -465,6 +521,9 @@ function HttpRequestWorkspace({
   setOutput: (output: unknown[]) => void;
   input: unknown[];
   executionStatus: string;
+  triggers: WorkflowNodeDefinition[];
+  selectedTriggerId: string;
+  onTriggerChange: (triggerId: string) => void;
   outputFormat: "json" | "table" | "schema";
   setOutputFormat: (format: "json" | "table" | "schema") => void;
   editingPayload: boolean;
@@ -613,8 +672,16 @@ function HttpRequestWorkspace({
           <FormatTabs value={inputFormat} onChange={setInputFormat} />
         </div>
         <div className="http-input-source">
-          <select aria-label="Input source" defaultValue="manual-trigger">
-            <option value="manual-trigger">Manual Test Trigger</option>
+          <select
+            aria-label="Input source"
+            value={selectedTriggerId}
+            onChange={(event) => onTriggerChange(event.target.value)}
+          >
+            {triggers.map((trigger) => (
+              <option key={trigger.id} value={trigger.id}>
+                {trigger.label}
+              </option>
+            ))}
           </select>
         </div>
         {input.length > 0 ? (
