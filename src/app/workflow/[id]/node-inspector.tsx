@@ -31,6 +31,9 @@ export function NodeInspector({
   const [outputFormat, setOutputFormat] = useState<"json" | "table" | "schema">("json");
   const [editingPayload, setEditingPayload] = useState(false);
   const [draftPayload, setDraftPayload] = useState("");
+  const [inputFormat, setInputFormat] = useState<"json" | "table" | "schema">("json");
+  const [editingInput, setEditingInput] = useState(false);
+  const [draftInput, setDraftInput] = useState("");
 
   const syncOutputFromPayload = useCallback((payload: string | undefined) => {
     if (typeof payload === "string" && payload.trim()) {
@@ -48,6 +51,19 @@ export function NodeInspector({
   useEffect(() => {
     syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
   }, [node?.config?.outputPayload, syncOutputFromPayload]);
+
+  const inputData = useMemo(() => {
+    const body = node?.config?.body;
+    if (typeof body === "string" && body.trim()) {
+      try {
+        const parsed = JSON.parse(body);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [node?.config?.body]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -196,16 +212,78 @@ export function NodeInspector({
         {node.type === "http-request" ? (
           <div className="node-popup-body-http">
             <div className="http-body-panel">
-              <div className="inspector-section-title">
-                <Braces size={14} /> Payload
+              <div className="node-popup-output-header">
+                <span>
+                  <Braces size={14} /> INPUT
+                </span>
+                <div className="output-format-tabs">
+                  <button
+                    type="button"
+                    className={inputFormat === "schema" ? "active" : ""}
+                    onClick={() => setInputFormat("schema")}
+                  >
+                    Schema
+                  </button>
+                  <button
+                    type="button"
+                    className={inputFormat === "table" ? "active" : ""}
+                    onClick={() => setInputFormat("table")}
+                  >
+                    <Table2 size={12} />
+                    Table
+                  </button>
+                  <button
+                    type="button"
+                    className={inputFormat === "json" ? "active" : ""}
+                    onClick={() => setInputFormat("json")}
+                  >
+                    JSON
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="output-edit-btn"
+                  aria-label={editingInput ? "Done editing" : "Edit input payload"}
+                  onClick={() => {
+                    if (editingInput) {
+                      try {
+                        JSON.parse(draftInput);
+                        onConfigChange({ ...node.config, body: draftInput });
+                        setEditingInput(false);
+                      } catch {
+                        setError("Invalid JSON payload — fix the syntax and try again.");
+                      }
+                    } else {
+                      setDraftInput((node.config.body as string) || "");
+                      setEditingInput(true);
+                    }
+                  }}
+                >
+                  <Pencil size={13} />
+                  {editingInput ? "Done" : "Edit"}
+                </button>
               </div>
-              <textarea
-                className="http-payload-editor"
-                rows={14}
-                value={(node.config.body as string) || ""}
-                onChange={(e) => onConfigChange({ ...node.config, body: e.target.value })}
-                placeholder='{"key": "value"}'
-              />
+              {editingInput ? (
+                <div className="output-edit-area">
+                  <textarea
+                    className="trigger-output-editor"
+                    rows={14}
+                    value={draftInput}
+                    onChange={(e) => setDraftInput(e.target.value)}
+                    placeholder='{"key": "value"}'
+                  />
+                  <p className="output-edit-hint">Edit the JSON payload to send. Changes apply when you click Done.</p>
+                </div>
+              ) : inputFormat === "json" ? (
+                <pre className="node-popup-json">{JSON.stringify(inputData, null, 2)}</pre>
+              ) : inputFormat === "table" ? (
+                <OutputTableView data={inputData} />
+              ) : (
+                <OutputSchemaView data={inputData} />
+              )}
+              {!editingInput && inputData.length === 0 ? (
+                <p className="node-popup-output-hint">No input payload configured.</p>
+              ) : null}
             </div>
             <div className="http-config-panel">
               <div className="inspector-form">
@@ -253,8 +331,32 @@ export function NodeInspector({
             <div className="http-output-panel">
               <div className="node-popup-output-header">
                 <span>
-                  <Braces size={14} /> RESPONSE
+                  <Braces size={14} /> OUTPUT
                 </span>
+                <div className="output-format-tabs">
+                  <button
+                    type="button"
+                    className={outputFormat === "schema" ? "active" : ""}
+                    onClick={() => setOutputFormat("schema")}
+                  >
+                    Schema
+                  </button>
+                  <button
+                    type="button"
+                    className={outputFormat === "table" ? "active" : ""}
+                    onClick={() => setOutputFormat("table")}
+                  >
+                    <Table2 size={12} />
+                    Table
+                  </button>
+                  <button
+                    type="button"
+                    className={outputFormat === "json" ? "active" : ""}
+                    onClick={() => setOutputFormat("json")}
+                  >
+                    JSON
+                  </button>
+                </div>
               </div>
               {error ? (
                 <div className="manual-output-error" role="alert">
@@ -262,7 +364,13 @@ export function NodeInspector({
                 </div>
               ) : null}
               {output.length > 0 ? (
-                <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+                outputFormat === "json" ? (
+                  <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+                ) : outputFormat === "table" ? (
+                  <OutputTableView data={output} />
+                ) : (
+                  <OutputSchemaView data={output} />
+                )
               ) : (
                 <p className="node-popup-output-hint">Send the request to see the response.</p>
               )}
