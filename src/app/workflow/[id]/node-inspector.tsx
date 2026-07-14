@@ -149,9 +149,6 @@ export function NodeInspector({
         </div>
       );
     }
-    if (node.type === "http-request") {
-      return <HttpRequestForm config={node.config} onChange={onConfigChange} />;
-    }
     return (
       <div className="node-popup-empty-copy">
         <strong>{node.label} parameters</strong>
@@ -196,122 +193,152 @@ export function NodeInspector({
             </button>
           </div>
         </header>
-        <div className="node-popup-body">
-          <div className="node-popup-parameters">
-            <div className="node-popup-tabs">
-              <button
-                type="button"
-                className={activeTab === "parameters" ? "active" : ""}
-                onClick={() => setActiveTab("parameters")}
-              >
-                Parameters
-              </button>
-              <button
-                type="button"
-                className={activeTab === "settings" ? "active" : ""}
-                onClick={() => setActiveTab("settings")}
-              >
-                Settings
-              </button>
-            </div>
-            <div className="node-popup-parameter-content">
-              {parameterContent}
-              {isTrigger && blockedMessage ? (
-                <div className="manual-output-error node-trigger-save-warning" role="alert">
-                  {blockedMessage}
+        {node.type === "http-request" ? (
+          <div className="node-popup-body-http">
+            <div className="http-input-panel">
+              <div className="inspector-form">
+                <div className="inspector-section-title">
+                  <Globe2 size={14} /> Request
                 </div>
+                <HttpRequestForm config={node.config} onChange={onConfigChange} />
+              </div>
+            </div>
+            <div className="http-output-panel">
+              <div className="node-popup-output-header">
+                <span>
+                  <Braces size={14} /> RESPONSE
+                </span>
+              </div>
+              {error ? (
+                <div className="manual-output-error" role="alert">
+                  {error}
+                </div>
+              ) : null}
+              {output.length > 0 ? (
+                <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+              ) : (
+                <p className="node-popup-output-hint">Send the request to see the response.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="node-popup-body">
+            <div className="node-popup-parameters">
+              <div className="node-popup-tabs">
+                <button
+                  type="button"
+                  className={activeTab === "parameters" ? "active" : ""}
+                  onClick={() => setActiveTab("parameters")}
+                >
+                  Parameters
+                </button>
+                <button
+                  type="button"
+                  className={activeTab === "settings" ? "active" : ""}
+                  onClick={() => setActiveTab("settings")}
+                >
+                  Settings
+                </button>
+              </div>
+              <div className="node-popup-parameter-content">
+                {parameterContent}
+                {isTrigger && blockedMessage ? (
+                  <div className="manual-output-error node-trigger-save-warning" role="alert">
+                    {blockedMessage}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="node-popup-output">
+              <div className="node-popup-output-header">
+                <span>
+                  <Braces size={14} /> OUTPUT
+                </span>
+                <div className="output-format-tabs">
+                  <button
+                    type="button"
+                    className={outputFormat === "schema" ? "active" : ""}
+                    onClick={() => setOutputFormat("schema")}
+                  >
+                    Schema
+                  </button>
+                  <button
+                    type="button"
+                    className={outputFormat === "table" ? "active" : ""}
+                    onClick={() => setOutputFormat("table")}
+                  >
+                    <Table2 size={12} />
+                    Table
+                  </button>
+                  <button
+                    type="button"
+                    className={outputFormat === "json" ? "active" : ""}
+                    onClick={() => setOutputFormat("json")}
+                  >
+                    JSON
+                  </button>
+                </div>
+                {isTrigger && (
+                  <button
+                    type="button"
+                    className="output-edit-btn"
+                    aria-label={editingPayload ? "Done editing" : "Edit output payload"}
+                    onClick={() => {
+                      if (editingPayload) {
+                        try {
+                          JSON.parse(draftPayload);
+                          onConfigChange({ ...node.config, outputPayload: draftPayload });
+                          setEditingPayload(false);
+                        } catch {
+                          setError("Invalid JSON payload — fix the syntax and try again.");
+                        }
+                      } else {
+                        const current = node.config.outputPayload;
+                        setDraftPayload(typeof current === "string" ? current : JSON.stringify(output, null, 2));
+                        setEditingPayload(true);
+                      }
+                    }}
+                  >
+                    <Pencil size={13} />
+                    {editingPayload ? "Done" : "Edit"}
+                  </button>
+                )}
+              </div>
+              {error ? (
+                <div className="manual-output-error" role="alert">
+                  {error}
+                </div>
+              ) : null}
+              {editingPayload ? (
+                <div className="output-edit-area">
+                  <textarea
+                    className="trigger-output-editor"
+                    rows={14}
+                    value={draftPayload}
+                    onChange={(e) => setDraftPayload(e.target.value)}
+                    placeholder='[{"key": "value"}]'
+                  />
+                  <p className="output-edit-hint">
+                    Edit the JSON payload this trigger emits. Changes apply when you click Done.
+                  </p>
+                </div>
+              ) : outputFormat === "json" ? (
+                <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+              ) : outputFormat === "table" ? (
+                <OutputTableView data={output} />
+              ) : (
+                <OutputSchemaView data={output} />
+              )}
+              {!editingPayload && output.length === 0 ? (
+                <p className="node-popup-output-hint">
+                  {isTrigger
+                    ? "Execute this trigger to emit JSON output."
+                    : "This node receives JSON from its upstream node."}
+                </p>
               ) : null}
             </div>
           </div>
-          <div className="node-popup-output">
-            <div className="node-popup-output-header">
-              <span>
-                <Braces size={14} /> OUTPUT
-              </span>
-              <div className="output-format-tabs">
-                <button
-                  type="button"
-                  className={outputFormat === "schema" ? "active" : ""}
-                  onClick={() => setOutputFormat("schema")}
-                >
-                  Schema
-                </button>
-                <button
-                  type="button"
-                  className={outputFormat === "table" ? "active" : ""}
-                  onClick={() => setOutputFormat("table")}
-                >
-                  <Table2 size={12} />
-                  Table
-                </button>
-                <button
-                  type="button"
-                  className={outputFormat === "json" ? "active" : ""}
-                  onClick={() => setOutputFormat("json")}
-                >
-                  JSON
-                </button>
-              </div>
-              {isTrigger && (
-                <button
-                  type="button"
-                  className="output-edit-btn"
-                  aria-label={editingPayload ? "Done editing" : "Edit output payload"}
-                  onClick={() => {
-                    if (editingPayload) {
-                      try {
-                        JSON.parse(draftPayload);
-                        onConfigChange({ ...node.config, outputPayload: draftPayload });
-                        setEditingPayload(false);
-                      } catch {
-                        setError("Invalid JSON payload — fix the syntax and try again.");
-                      }
-                    } else {
-                      const current = node.config.outputPayload;
-                      setDraftPayload(typeof current === "string" ? current : JSON.stringify(output, null, 2));
-                      setEditingPayload(true);
-                    }
-                  }}
-                >
-                  <Pencil size={13} />
-                  {editingPayload ? "Done" : "Edit"}
-                </button>
-              )}
-            </div>
-            {error ? (
-              <div className="manual-output-error" role="alert">
-                {error}
-              </div>
-            ) : null}
-            {editingPayload ? (
-              <div className="output-edit-area">
-                <textarea
-                  className="trigger-output-editor"
-                  rows={14}
-                  value={draftPayload}
-                  onChange={(e) => setDraftPayload(e.target.value)}
-                  placeholder='[{"key": "value"}]'
-                />
-                <p className="output-edit-hint">
-                  Edit the JSON payload this trigger emits. Changes apply when you click Done.
-                </p>
-              </div>
-            ) : outputFormat === "json" ? (
-              <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
-            ) : outputFormat === "table" ? (
-              <OutputTableView data={output} />
-            ) : (
-              <OutputSchemaView data={output} />
-            )}
-            {!editingPayload && output.length === 0 ? (
-              <p className="node-popup-output-hint">
-                {isTrigger
-                  ? "Execute this trigger to emit JSON output."
-                  : "This node receives JSON from its upstream node."}
-              </p>
-            ) : null}
-          </div>
-        </div>
+        )}
       </section>
     </div>
   );
