@@ -1,6 +1,19 @@
 "use client";
-import { Braces, Clock3, Globe2, Pencil, Play, Settings2, Table2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Braces,
+  Clock3,
+  ExternalLink,
+  FlaskConical,
+  Globe2,
+  Pencil,
+  Play,
+  Plus,
+  Settings2,
+  Table2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   defaultScheduleConfig,
   describeSchedule,
@@ -31,9 +44,7 @@ export function NodeInspector({
   const [outputFormat, setOutputFormat] = useState<"json" | "table" | "schema">("json");
   const [editingPayload, setEditingPayload] = useState(false);
   const [draftPayload, setDraftPayload] = useState("");
-  const [inputFormat, setInputFormat] = useState<"json" | "table" | "schema">("json");
-  const [editingInput, setEditingInput] = useState(false);
-  const [draftInput, setDraftInput] = useState("");
+  const dialogRef = useRef<HTMLElement>(null);
 
   const syncOutputFromPayload = useCallback((payload: string | undefined) => {
     if (typeof payload === "string" && payload.trim()) {
@@ -49,28 +60,48 @@ export function NodeInspector({
   }, []);
 
   useEffect(() => {
-    syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
-  }, [node?.config?.outputPayload, syncOutputFromPayload]);
-
-  const inputData = useMemo(() => {
-    const body = node?.config?.body;
-    if (typeof body === "string" && body.trim()) {
-      try {
-        const parsed = JSON.parse(body);
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch {
-        return [];
-      }
+    if (node?.type === "http-request") {
+      setOutput([]);
+      return;
     }
-    return [];
-  }, [node?.config?.body]);
+    syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
+  }, [node?.config?.outputPayload, node?.type, syncOutputFromPayload]);
 
   useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector =
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusFrame = window.requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus();
+    });
+    const handleDialogKeys = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)];
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", handleDialogKeys);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleDialogKeys);
+      previouslyFocused?.focus();
+    };
   }, [onClose]);
 
   if (!node) return null;
@@ -175,17 +206,33 @@ export function NodeInspector({
 
   return (
     <div className="node-popup-backdrop">
-      <section className="node-popup" role="dialog" aria-modal="true" aria-label={`${node.label} node editor`}>
+      <section
+        ref={dialogRef}
+        className={`node-popup${node.type === "http-request" ? " node-popup-http" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${node.label} node editor`}
+        tabIndex={-1}
+      >
         <header className="node-popup-header">
           <div className="inspector-icon">
-            <Settings2 size={16} />
+            {node.type === "http-request" ? <Globe2 size={16} /> : <Settings2 size={16} />}
           </div>
           <div className="node-popup-title">
-            <small>{node.kind.toUpperCase()}</small>
+            {node.type !== "http-request" ? <small>{node.kind.toUpperCase()}</small> : null}
             <strong>{node.label}</strong>
           </div>
           <div className="node-popup-actions">
-            {isTrigger ? (
+            {node.type === "http-request" ? (
+              <a
+                className="node-popup-docs"
+                href="https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.httprequest/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Docs <ExternalLink size={12} />
+              </a>
+            ) : isTrigger ? (
               <button
                 type="button"
                 className="manual-execute"
@@ -194,15 +241,6 @@ export function NodeInspector({
               >
                 <Play size={14} /> {executing ? "Executing…" : "Execute step"}
               </button>
-            ) : node.type === "http-request" ? (
-              <button
-                type="button"
-                className="manual-execute"
-                onClick={executeHttpRequest}
-                disabled={executing || !workflowId || hasUnsavedChanges}
-              >
-                <Play size={14} /> {executing ? "Sending…" : "Send request"}
-              </button>
             ) : null}
             <button type="button" className="node-popup-close" onClick={onClose} aria-label="Close node parameters">
               <X size={17} />
@@ -210,206 +248,25 @@ export function NodeInspector({
           </div>
         </header>
         {node.type === "http-request" ? (
-          <div className="node-popup-body-http">
-            <div className="http-body-panel">
-              <div className="node-popup-output-header">
-                <span>
-                  <Braces size={14} /> INPUT
-                </span>
-                <div className="output-format-tabs">
-                  <button
-                    type="button"
-                    className={inputFormat === "schema" ? "active" : ""}
-                    onClick={() => setInputFormat("schema")}
-                  >
-                    Schema
-                  </button>
-                  <button
-                    type="button"
-                    className={inputFormat === "table" ? "active" : ""}
-                    onClick={() => setInputFormat("table")}
-                  >
-                    <Table2 size={12} />
-                    Table
-                  </button>
-                  <button
-                    type="button"
-                    className={inputFormat === "json" ? "active" : ""}
-                    onClick={() => setInputFormat("json")}
-                  >
-                    JSON
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="output-edit-btn"
-                  aria-label={editingInput ? "Done editing" : "Edit input payload"}
-                  onClick={() => {
-                    if (editingInput) {
-                      try {
-                        JSON.parse(draftInput);
-                        onConfigChange({ ...node.config, body: draftInput });
-                        setEditingInput(false);
-                      } catch {
-                        setError("Invalid JSON payload — fix the syntax and try again.");
-                      }
-                    } else {
-                      setDraftInput((node.config.body as string) || "");
-                      setEditingInput(true);
-                    }
-                  }}
-                >
-                  <Pencil size={13} />
-                  {editingInput ? "Done" : "Edit"}
-                </button>
-              </div>
-              {editingInput ? (
-                <div className="output-edit-area">
-                  <textarea
-                    className="trigger-output-editor"
-                    rows={14}
-                    value={draftInput}
-                    onChange={(e) => setDraftInput(e.target.value)}
-                    placeholder='{"key": "value"}'
-                  />
-                  <p className="output-edit-hint">Edit the JSON payload to send. Changes apply when you click Done.</p>
-                </div>
-              ) : inputFormat === "json" ? (
-                <pre className="node-popup-json">{JSON.stringify(inputData, null, 2)}</pre>
-              ) : inputFormat === "table" ? (
-                <OutputTableView data={inputData} />
-              ) : (
-                <OutputSchemaView data={inputData} />
-              )}
-              {!editingInput && inputData.length === 0 ? (
-                <p className="node-popup-output-hint">No input payload configured.</p>
-              ) : null}
-            </div>
-            <div className="http-config-panel">
-              <div className="inspector-form">
-                <div className="inspector-section-title">
-                  <Globe2 size={14} /> Endpoint
-                </div>
-                <label>
-                  Method
-                  <select
-                    value={(node.config.method as string) || "GET"}
-                    onChange={(e) => onConfigChange({ ...node.config, method: e.target.value })}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
-                </label>
-                <label>
-                  URL
-                  <input
-                    type="url"
-                    value={(node.config.url as string) || ""}
-                    onChange={(e) => onConfigChange({ ...node.config, url: e.target.value })}
-                    placeholder="https://api.example.com/data"
-                  />
-                </label>
-                <label>
-                  Headers (JSON)
-                  <textarea
-                    className="inspector-textarea"
-                    rows={4}
-                    value={
-                      typeof node.config.headers === "string"
-                        ? node.config.headers
-                        : JSON.stringify(node.config.headers || {}, null, 2)
-                    }
-                    onChange={(e) => onConfigChange({ ...node.config, headers: e.target.value })}
-                    placeholder='{"Content-Type": "application/json"}'
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="http-output-panel">
-              <div className="node-popup-output-header">
-                <span>
-                  <Braces size={14} /> OUTPUT
-                </span>
-                <div className="output-format-tabs">
-                  <button
-                    type="button"
-                    className={outputFormat === "schema" ? "active" : ""}
-                    onClick={() => setOutputFormat("schema")}
-                  >
-                    Schema
-                  </button>
-                  <button
-                    type="button"
-                    className={outputFormat === "table" ? "active" : ""}
-                    onClick={() => setOutputFormat("table")}
-                  >
-                    <Table2 size={12} />
-                    Table
-                  </button>
-                  <button
-                    type="button"
-                    className={outputFormat === "json" ? "active" : ""}
-                    onClick={() => setOutputFormat("json")}
-                  >
-                    JSON
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="output-edit-btn"
-                  aria-label={editingPayload ? "Done editing" : "Edit output payload"}
-                  onClick={() => {
-                    if (editingPayload) {
-                      try {
-                        JSON.parse(draftPayload);
-                        const parsed = JSON.parse(draftPayload);
-                        setOutput(Array.isArray(parsed) ? parsed : [parsed]);
-                        setEditingPayload(false);
-                      } catch {
-                        setError("Invalid JSON payload — fix the syntax and try again.");
-                      }
-                    } else {
-                      setDraftPayload(JSON.stringify(output, null, 2));
-                      setEditingPayload(true);
-                    }
-                  }}
-                >
-                  <Pencil size={13} />
-                  {editingPayload ? "Done" : "Edit"}
-                </button>
-              </div>
-              {error ? (
-                <div className="manual-output-error" role="alert">
-                  {error}
-                </div>
-              ) : null}
-              {editingPayload ? (
-                <div className="output-edit-area">
-                  <textarea
-                    className="trigger-output-editor"
-                    rows={14}
-                    value={draftPayload}
-                    onChange={(e) => setDraftPayload(e.target.value)}
-                    placeholder='[{"key": "value"}]'
-                  />
-                  <p className="output-edit-hint">Edit the JSON output. Changes apply when you click Done.</p>
-                </div>
-              ) : output.length > 0 ? (
-                outputFormat === "json" ? (
-                  <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
-                ) : outputFormat === "table" ? (
-                  <OutputTableView data={output} />
-                ) : (
-                  <OutputSchemaView data={output} />
-                )
-              ) : (
-                <p className="node-popup-output-hint">Send the request to see the response.</p>
-              )}
-            </div>
-          </div>
+          <HttpRequestWorkspace
+            node={node}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            output={output}
+            setOutput={setOutput}
+            outputFormat={outputFormat}
+            setOutputFormat={setOutputFormat}
+            editingPayload={editingPayload}
+            setEditingPayload={setEditingPayload}
+            draftPayload={draftPayload}
+            setDraftPayload={setDraftPayload}
+            error={error}
+            setError={setError}
+            executing={executing}
+            canExecute={Boolean(workflowId) && !hasUnsavedChanges}
+            onExecute={executeHttpRequest}
+            onConfigChange={onConfigChange}
+          />
         ) : (
           <div className="node-popup-body">
             <div className="node-popup-parameters">
@@ -530,6 +387,375 @@ export function NodeInspector({
         )}
       </section>
     </div>
+  );
+}
+
+function HttpRequestWorkspace({
+  node,
+  activeTab,
+  setActiveTab,
+  output,
+  setOutput,
+  outputFormat,
+  setOutputFormat,
+  editingPayload,
+  setEditingPayload,
+  draftPayload,
+  setDraftPayload,
+  error,
+  setError,
+  executing,
+  canExecute,
+  onExecute,
+  onConfigChange,
+}: {
+  node: WorkflowNodeDefinition;
+  activeTab: "parameters" | "settings";
+  setActiveTab: (tab: "parameters" | "settings") => void;
+  output: unknown[];
+  setOutput: (output: unknown[]) => void;
+  outputFormat: "json" | "table" | "schema";
+  setOutputFormat: (format: "json" | "table" | "schema") => void;
+  editingPayload: boolean;
+  setEditingPayload: (editing: boolean) => void;
+  draftPayload: string;
+  setDraftPayload: (value: string) => void;
+  error: string;
+  setError: (value: string) => void;
+  executing: boolean;
+  canExecute: boolean;
+  onExecute: () => void;
+  onConfigChange: (config: Record<string, unknown>) => void;
+}) {
+  const headerText =
+    typeof node.config.headers === "string" ? node.config.headers : JSON.stringify(node.config.headers || {}, null, 2);
+  const bodyText = typeof node.config.body === "string" ? node.config.body : "";
+  const [showQueryParameters, setShowQueryParameters] = useState(false);
+  const [showHeaders, setShowHeaders] = useState(headerText !== "{}" && headerText.trim() !== "");
+  const [showBody, setShowBody] = useState(bodyText.trim() !== "");
+  const [inputFormat, setInputFormat] = useState<"json" | "table" | "schema">("json");
+
+  const executeLabel = executing ? "Executing…" : "Execute step";
+  const emptyExecutionHint = canExecute ? "" : "Save your workflow changes before executing this node.";
+
+  const saveMockOutput = () => {
+    try {
+      const parsed = JSON.parse(draftPayload);
+      const nextOutput = Array.isArray(parsed) ? parsed : [parsed];
+      setOutput(nextOutput);
+      setEditingPayload(false);
+      setError("");
+      return true;
+    } catch {
+      setError("Invalid JSON payload — fix the syntax and try again.");
+      return null;
+    }
+  };
+
+  return (
+    <div className="node-popup-body-http">
+      <section className="http-workspace-input" aria-label="Input data">
+        <div className="http-pane-header">
+          <span>INPUT</span>
+          <FormatTabs value={inputFormat} onChange={setInputFormat} />
+        </div>
+        <div className="http-input-source">
+          <select aria-label="Input source" defaultValue="manual-trigger">
+            <option value="manual-trigger">Manual Test Trigger</option>
+          </select>
+        </div>
+        <div className="http-empty-state">
+          <ArrowRight size={22} />
+          <strong>No input data</strong>
+          <button
+            type="button"
+            className="manual-execute"
+            disabled
+            title="Previous-node execution is not available yet"
+          >
+            Execute previous nodes
+          </button>
+          <span>Previous-node execution is not available yet.</span>
+        </div>
+      </section>
+
+      <section className="http-workspace-parameters" aria-label="HTTP Request parameters">
+        <div className="http-parameter-toolbar">
+          <div className="node-popup-tabs">
+            <button
+              type="button"
+              className={activeTab === "parameters" ? "active" : ""}
+              aria-pressed={activeTab === "parameters"}
+              onClick={() => setActiveTab("parameters")}
+            >
+              Parameters
+            </button>
+            <button
+              type="button"
+              className={activeTab === "settings" ? "active" : ""}
+              aria-pressed={activeTab === "settings"}
+              onClick={() => setActiveTab("settings")}
+            >
+              Settings
+            </button>
+          </div>
+          <button
+            type="button"
+            className="manual-execute http-toolbar-execute"
+            onClick={onExecute}
+            disabled={executing || !canExecute}
+            title={emptyExecutionHint}
+          >
+            <FlaskConical size={14} /> {executeLabel}
+          </button>
+        </div>
+        <div className="http-parameter-content">
+          {activeTab === "settings" ? (
+            <div className="node-popup-empty-copy">
+              <strong>Node settings</strong>
+              <p>Runtime retry and timeout settings will appear here when the workflow executor supports them.</p>
+            </div>
+          ) : (
+            <>
+              <div className="http-import-row">
+                <button type="button" className="http-secondary-button" disabled title="cURL import is coming soon">
+                  Import cURL
+                </button>
+              </div>
+              <div className="inspector-form http-request-form">
+                <label>
+                  Method
+                  <select
+                    value={(node.config.method as string) || "GET"}
+                    onChange={(event) => onConfigChange({ ...node.config, method: event.target.value })}
+                  >
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="DELETE">DELETE</option>
+                  </select>
+                </label>
+                <label>
+                  URL
+                  <input
+                    type="url"
+                    value={(node.config.url as string) || ""}
+                    onChange={(event) => onConfigChange({ ...node.config, url: event.target.value })}
+                    placeholder="https://api.example.com/data"
+                  />
+                </label>
+                <label>
+                  Authentication
+                  <select value="none" disabled>
+                    <option value="none">None</option>
+                  </select>
+                </label>
+
+                <HttpOptionToggle
+                  label="Send Query Parameters"
+                  checked={showQueryParameters}
+                  onChange={setShowQueryParameters}
+                />
+                {showQueryParameters ? (
+                  <div className="http-option-placeholder">
+                    Query parameter editing will be available with the runtime contract.
+                  </div>
+                ) : null}
+
+                <HttpOptionToggle
+                  label="Send Headers"
+                  checked={showHeaders}
+                  onChange={(checked) => {
+                    setShowHeaders(checked);
+                    if (!checked) onConfigChange({ ...node.config, headers: {} });
+                  }}
+                />
+                {showHeaders ? (
+                  <label>
+                    Headers (JSON)
+                    <textarea
+                      className="inspector-textarea"
+                      rows={4}
+                      value={headerText}
+                      onChange={(event) => onConfigChange({ ...node.config, headers: event.target.value })}
+                      placeholder='{"Content-Type": "application/json"}'
+                    />
+                  </label>
+                ) : null}
+
+                <HttpOptionToggle
+                  label="Send Body"
+                  checked={showBody}
+                  onChange={(checked) => {
+                    setShowBody(checked);
+                    if (!checked) onConfigChange({ ...node.config, body: "" });
+                  }}
+                />
+                {showBody ? (
+                  <label>
+                    Body (JSON)
+                    <textarea
+                      className="inspector-textarea"
+                      rows={6}
+                      value={bodyText}
+                      onChange={(event) => onConfigChange({ ...node.config, body: event.target.value })}
+                      placeholder='{"key": "value"}'
+                    />
+                  </label>
+                ) : null}
+
+                <div className="http-options-heading">
+                  <span>Options</span>
+                  <Plus size={14} />
+                </div>
+                <button type="button" className="http-secondary-button http-add-option" disabled>
+                  <Plus size={13} /> Add Option
+                </button>
+                <div className="http-request-note">
+                  You can inspect the raw request this node makes in your browser&apos;s developer console.
+                </div>
+                {!canExecute ? (
+                  <div className="manual-output-error" role="alert">
+                    {emptyExecutionHint}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+        <span className="http-feedback-link">♧ I wish this node would…</span>
+      </section>
+
+      <section className="http-workspace-output" aria-label="Output data">
+        <div className="http-pane-header">
+          <span>OUTPUT</span>
+          <FormatTabs value={outputFormat} onChange={setOutputFormat} />
+          <button
+            type="button"
+            className="output-edit-btn http-output-edit"
+            aria-label={editingPayload ? "Apply mock output" : "Edit mock output"}
+            onClick={() => {
+              if (editingPayload) {
+                saveMockOutput();
+              } else {
+                setDraftPayload(JSON.stringify(output, null, 2));
+                setEditingPayload(true);
+              }
+            }}
+          >
+            <Pencil size={13} />
+          </button>
+        </div>
+        {error ? (
+          <div className="manual-output-error" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {editingPayload ? (
+          <div className="output-edit-area">
+            <textarea
+              className="trigger-output-editor"
+              rows={14}
+              value={draftPayload}
+              onChange={(event) => setDraftPayload(event.target.value)}
+              placeholder='[{"key": "value"}]'
+            />
+            <p className="output-edit-hint">Mock output remains local to this editor session.</p>
+          </div>
+        ) : output.length > 0 ? (
+          outputFormat === "json" ? (
+            <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
+          ) : outputFormat === "table" ? (
+            <OutputTableView data={output} />
+          ) : (
+            <OutputSchemaView data={output} />
+          )
+        ) : (
+          <div className="http-empty-state">
+            <ArrowRight size={22} />
+            <strong>No output data</strong>
+            <button
+              type="button"
+              className="manual-execute"
+              onClick={onExecute}
+              disabled={executing || !canExecute}
+              title={emptyExecutionHint}
+            >
+              {executeLabel}
+            </button>
+            <span>
+              or{" "}
+              <button
+                type="button"
+                className="http-mock-link"
+                onClick={() => {
+                  setDraftPayload("[]");
+                  setEditingPayload(true);
+                }}
+              >
+                set mock data
+              </button>
+            </span>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function FormatTabs({
+  value,
+  onChange,
+}: {
+  value: "json" | "table" | "schema";
+  onChange: (format: "json" | "table" | "schema") => void;
+}) {
+  return (
+    <div className="output-format-tabs">
+      <button
+        type="button"
+        className={value === "schema" ? "active" : ""}
+        aria-pressed={value === "schema"}
+        onClick={() => onChange("schema")}
+      >
+        Schema
+      </button>
+      <button
+        type="button"
+        className={value === "table" ? "active" : ""}
+        aria-pressed={value === "table"}
+        onClick={() => onChange("table")}
+      >
+        Table
+      </button>
+      <button
+        type="button"
+        className={value === "json" ? "active" : ""}
+        aria-pressed={value === "json"}
+        onClick={() => onChange("json")}
+      >
+        JSON
+      </button>
+    </div>
+  );
+}
+
+function HttpOptionToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="http-option-toggle">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span className="http-switch" aria-hidden="true" />
+      <strong>{label}</strong>
+    </label>
   );
 }
 
