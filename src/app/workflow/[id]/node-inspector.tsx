@@ -357,13 +357,47 @@ export function NodeInspector({
                     JSON
                   </button>
                 </div>
+                <button
+                  type="button"
+                  className="output-edit-btn"
+                  aria-label={editingPayload ? "Done editing" : "Edit output payload"}
+                  onClick={() => {
+                    if (editingPayload) {
+                      try {
+                        JSON.parse(draftPayload);
+                        const parsed = JSON.parse(draftPayload);
+                        setOutput(Array.isArray(parsed) ? parsed : [parsed]);
+                        setEditingPayload(false);
+                      } catch {
+                        setError("Invalid JSON payload — fix the syntax and try again.");
+                      }
+                    } else {
+                      setDraftPayload(JSON.stringify(output, null, 2));
+                      setEditingPayload(true);
+                    }
+                  }}
+                >
+                  <Pencil size={13} />
+                  {editingPayload ? "Done" : "Edit"}
+                </button>
               </div>
               {error ? (
                 <div className="manual-output-error" role="alert">
                   {error}
                 </div>
               ) : null}
-              {output.length > 0 ? (
+              {editingPayload ? (
+                <div className="output-edit-area">
+                  <textarea
+                    className="trigger-output-editor"
+                    rows={14}
+                    value={draftPayload}
+                    onChange={(e) => setDraftPayload(e.target.value)}
+                    placeholder='[{"key": "value"}]'
+                  />
+                  <p className="output-edit-hint">Edit the JSON output. Changes apply when you click Done.</p>
+                </div>
+              ) : output.length > 0 ? (
                 outputFormat === "json" ? (
                   <pre className="node-popup-json">{JSON.stringify(output, null, 2)}</pre>
                 ) : outputFormat === "table" ? (
