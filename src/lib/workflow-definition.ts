@@ -191,7 +191,7 @@ export function inferNodeType(label: string, index = 0): WorkflowNodeType {
 export function defaultConfigForType(type: WorkflowNodeType): Record<string, unknown> {
   if (type === "schedule") return { ...defaultScheduleConfig };
   if (type === "manual") return { enabled: true };
-  if (type === "webhook") return { enabled: true, method: "POST", authMode: "none", responseMode: "immediate" };
+  if (type === "webhook") return { enabled: true, method: "POST", authMode: "capability", responseMode: "immediate" };
   if (type === "http-request")
     return {
       ...defaultHTTPRequestConfig,
@@ -313,13 +313,15 @@ export function parseWorkflowDefinition(value: unknown): WorkflowDefinitionV1 {
     if (!Number.isFinite(raw.position.x) || !Number.isFinite(raw.position.y) || !isRecord(raw.config)) {
       throw new Error("Invalid workflow node config");
     }
+    const config = { ...raw.config };
+    if (type === "webhook" && config.authMode === "none") config.authMode = "capability";
     return {
       id: raw.id,
       type,
       kind: raw.kind as WorkflowNodeKind,
       label: raw.label,
       position: { x: raw.position.x, y: raw.position.y },
-      config: raw.config,
+      config,
     };
   });
   const edgeIDs = new Set<string>();

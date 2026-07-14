@@ -53,6 +53,25 @@ describe("workflow definition", () => {
     expect(() => parseWorkflowDefinition(dangling)).toThrow("unknown node");
   });
 
+  test("normalizes legacy webhook auth to capability auth", () => {
+    const definition = {
+      version: 1 as const,
+      nodes: [
+        {
+          id: "hook",
+          type: "webhook" as const,
+          kind: "trigger" as const,
+          label: "Webhook",
+          position: { x: 0, y: 0 },
+          config: { enabled: true, method: "POST", authMode: "none", responseMode: "immediate" },
+        },
+      ],
+      edges: [],
+    };
+    expect(parseWorkflowDefinition(definition).nodes[0].config.authMode).toBe("capability");
+    expect(defaultConfigForType("webhook").authMode).toBe("capability");
+  });
+
   test("normalizes the Phase 2 HTTP request contract and legacy defaults", () => {
     const defaults = defaultConfigForType("http-request");
     const config = httpRequestConfigFromRecord({
