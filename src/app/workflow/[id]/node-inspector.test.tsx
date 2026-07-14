@@ -52,7 +52,7 @@ describe("HTTP Request node editor", () => {
     expect(html).toContain("Configure timeout, redirects, response format, and status handling in the Settings tab.");
     expect(html).toContain("No output data");
     expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain("Previous-node execution is not available yet.");
+    expect(html).toContain("Run the trigger and every upstream node through this node.");
   });
 
   test("shows the save guard and disables request execution for dirty workflows", () => {

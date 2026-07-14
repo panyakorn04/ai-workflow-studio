@@ -60,7 +60,17 @@ function isExecution(value: unknown): value is StudioExecution {
   return (
     typeof value.id === "string" &&
     typeof value.workflow === "string" &&
-    ["completed", "running", "failed", "waiting", "paused", "approved", "cancelled"].includes(String(value.status)) &&
+    [
+      "queued",
+      "completed",
+      "running",
+      "cancellation_requested",
+      "failed",
+      "waiting",
+      "paused",
+      "approved",
+      "cancelled",
+    ].includes(String(value.status)) &&
     typeof value.started === "string" &&
     typeof value.duration === "string" &&
     typeof value.durationMs === "number" &&

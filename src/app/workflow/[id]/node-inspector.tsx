@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { StudioCredential, StudioCredentialType } from "@/lib/studio-admin";
+import { parseStudioGraphExecutionDetail, type StudioCredential, type StudioCredentialType } from "@/lib/studio-admin";
 import {
   defaultScheduleConfig,
   describeSchedule,
@@ -44,6 +44,8 @@ export function NodeInspector({
 }) {
   const [activeTab, setActiveTab] = useState<"parameters" | "settings">("parameters");
   const [output, setOutput] = useState<unknown[]>([]);
+  const [input, setInput] = useState<unknown[]>([]);
+  const [executionStatus, setExecutionStatus] = useState("");
   const [error, setError] = useState("");
   const [executing, setExecuting] = useState(false);
   const [outputFormat, setOutputFormat] = useState<"json" | "table" | "schema">("json");
@@ -66,7 +68,9 @@ export function NodeInspector({
 
   useEffect(() => {
     if (node?.type === "http-request") {
+      setInput([]);
       setOutput([]);
+      setExecutionStatus("");
       return;
     }
     syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
@@ -156,17 +160,53 @@ export function NodeInspector({
     }
     setExecuting(true);
     setError("");
+    setExecutionStatus("Queuing previous nodes…");
     try {
       const response = await fetch("/api/studio/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "execute-http-request", workflowId, nodeId: node.id }),
+        body: JSON.stringify({
+          action: "execute-previous",
+          workflowId,
+          nodeId: node.id,
+          sourceKey: crypto.randomUUID(),
+        }),
       });
       const payload = await response.json();
-      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "HTTP request failed.");
-      setOutput(Array.isArray(payload.data?.output) ? payload.data.output : []);
+      if (!response.ok || !payload.ok || typeof payload.data?.id !== "string")
+        throw new Error(payload.error?.message ?? "Unable to start previous-node execution.");
+
+      const executionId = payload.data.id as string;
+      for (let attempt = 0; attempt < 140; attempt += 1) {
+        if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, 500));
+        const detailResponse = await fetch("/api/studio/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-execution", id: executionId }),
+        });
+        const detailPayload = await detailResponse.json();
+        if (!detailResponse.ok || !detailPayload.ok)
+          throw new Error(detailPayload.error?.message ?? "Unable to load execution progress.");
+        const detail = parseStudioGraphExecutionDetail(detailPayload.data);
+        const currentStage = detail.stages.find((stage) => stage.nodeId === node.id);
+        if (currentStage) {
+          setInput(Array.isArray(currentStage.input) ? currentStage.input : []);
+          if (Array.isArray(currentStage.output)) setOutput(currentStage.output);
+        }
+        setExecutionStatus(
+          detail.execution.status === "queued"
+            ? "Queued…"
+            : detail.execution.status === "running"
+              ? `Running ${detail.stages.filter((stage) => stage.status === "completed").length}/${detail.stages.length} nodes…`
+              : detail.execution.status,
+        );
+        if (detail.execution.status === "completed") return;
+        if (detail.execution.status === "failed" || detail.execution.status === "cancelled")
+          throw new Error(detail.execution.errorMessage || `Execution ${detail.execution.status}.`);
+      }
+      throw new Error("Execution is still running. Reopen this node to refresh its latest data.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "HTTP request failed.");
+      setError(cause instanceof Error ? cause.message : "Previous-node execution failed.");
     } finally {
       setExecuting(false);
     }
@@ -259,6 +299,8 @@ export function NodeInspector({
             setActiveTab={setActiveTab}
             output={output}
             setOutput={setOutput}
+            input={input}
+            executionStatus={executionStatus}
             outputFormat={outputFormat}
             setOutputFormat={setOutputFormat}
             editingPayload={editingPayload}
@@ -401,6 +443,8 @@ function HttpRequestWorkspace({
   setActiveTab,
   output,
   setOutput,
+  input,
+  executionStatus,
   outputFormat,
   setOutputFormat,
   editingPayload,
@@ -419,6 +463,8 @@ function HttpRequestWorkspace({
   setActiveTab: (tab: "parameters" | "settings") => void;
   output: unknown[];
   setOutput: (output: unknown[]) => void;
+  input: unknown[];
+  executionStatus: string;
   outputFormat: "json" | "table" | "schema";
   setOutputFormat: (format: "json" | "table" | "schema") => void;
   editingPayload: boolean;
@@ -571,19 +617,33 @@ function HttpRequestWorkspace({
             <option value="manual-trigger">Manual Test Trigger</option>
           </select>
         </div>
-        <div className="http-empty-state">
-          <ArrowRight size={22} />
-          <strong>No input data</strong>
-          <button
-            type="button"
-            className="manual-execute"
-            disabled
-            title="Previous-node execution is not available yet"
-          >
-            Execute previous nodes
-          </button>
-          <span>Previous-node execution is not available yet.</span>
-        </div>
+        {input.length > 0 ? (
+          <div className="http-input-data">
+            <pre className="node-popup-json">{JSON.stringify(input, null, 2)}</pre>
+          </div>
+        ) : (
+          <div className="http-empty-state">
+            <ArrowRight size={22} />
+            <strong>No input data</strong>
+            <button
+              type="button"
+              className="manual-execute"
+              onClick={onExecute}
+              disabled={executing || !canExecute}
+              title={emptyExecutionHint}
+            >
+              {executing ? "Executing previous nodes…" : "Execute previous nodes"}
+            </button>
+            <span>
+              {canExecute ? "Run the trigger and every upstream node through this node." : emptyExecutionHint}
+            </span>
+          </div>
+        )}
+        {executionStatus ? (
+          <div className="http-execution-status" role="status">
+            {executionStatus}
+          </div>
+        ) : null}
       </section>
 
       <section className="http-workspace-parameters" aria-label="HTTP Request parameters">

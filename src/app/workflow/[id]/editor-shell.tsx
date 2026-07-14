@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, Eye, MoreHorizontal, Play, Save, Settings, Share2 } from "lucide-react";
+import { ArrowLeft, Eye, MoreHorizontal, Play, Save, Settings, Share2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StudioWorkflow } from "@/lib/studio-api";
@@ -87,6 +87,8 @@ export function WorkflowEditorShell({ workflow }: Props) {
   const [canvasSeed, setCanvasSeed] = useState(0);
   const [selectedNodeID, setSelectedNodeID] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [detailState, setDetailState] = useState<"loading" | "ready" | "error">(isNew ? "ready" : "loading");
 
@@ -193,6 +195,53 @@ export function WorkflowEditorShell({ workflow }: Props) {
     }
   }, [name, definition, description, workflow, status, issues, isNew, router, detailState]);
 
+  const handleRun = useCallback(async () => {
+    if (!workflow?.id || definitionDirty || issues.length > 0) {
+      setSaveError("Save a valid workflow before running it.");
+      return;
+    }
+    setRunning(true);
+    setSaveError("");
+    try {
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create-execution",
+          workflowId: workflow.id,
+          sourceKey: crypto.randomUUID(),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to run workflow.");
+      setSaveError(`Execution ${payload.data.id} queued successfully.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to run workflow.");
+    } finally {
+      setRunning(false);
+    }
+  }, [workflow?.id, definitionDirty, issues.length]);
+
+  const handleDelete = useCallback(async () => {
+    if (!workflow?.id || !window.confirm(`Delete “${name}” and its execution history? This cannot be undone.`)) return;
+    setDeleting(true);
+    setSaveError("");
+    try {
+      const response = await fetch("/api/studio/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete-workflow", id: workflow.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to delete workflow.");
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to delete workflow.");
+      setDeleting(false);
+    }
+  }, [workflow?.id, name, router]);
+
   return (
     <div className="editor-shell">
       <header className="editor-topbar">
@@ -224,13 +273,32 @@ export function WorkflowEditorShell({ workflow }: Props) {
           <button type="button" className="editor-btn" aria-label="Share">
             <Share2 size={14} />
           </button>
-          <button type="button" className="editor-btn" aria-label="More">
-            <MoreHorizontal size={14} />
-          </button>
+          {workflow?.id ? (
+            <button
+              type="button"
+              className="editor-btn"
+              aria-label="Delete workflow"
+              title="Delete workflow"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              <Trash2 size={14} />
+            </button>
+          ) : (
+            <button type="button" className="editor-btn" aria-label="More">
+              <MoreHorizontal size={14} />
+            </button>
+          )}
           <div className="editor-divider" />
-          <button type="button" className="editor-btn editor-run" title="Execute workflow" disabled={issues.length > 0}>
+          <button
+            type="button"
+            className="editor-btn editor-run"
+            title={definitionDirty ? "Save changes before running" : "Execute workflow"}
+            disabled={!workflow?.id || issues.length > 0 || definitionDirty || running}
+            onClick={handleRun}
+          >
             <Play size={14} />
-            <span>Run</span>
+            <span>{running ? "Queuing…" : "Run"}</span>
           </button>
           <button
             type="button"

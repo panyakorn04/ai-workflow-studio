@@ -9,7 +9,6 @@ import {
   Command,
   GitBranch,
   MoreHorizontal,
-  Pause,
   Play,
   Plus,
   RotateCcw,
@@ -33,8 +32,10 @@ import { Sidebar } from "./sidebar";
 const WorkflowForm = dynamic(() => import("./workflow-form").then((mod) => mod.WorkflowForm), { ssr: false });
 
 const statusLabel: Record<ExecutionStatus, string> = {
+  queued: "Queued",
   completed: "Completed",
   running: "Running",
+  cancellation_requested: "Cancelling",
   failed: "Failed",
   waiting: "Approval",
   paused: "Paused",
@@ -372,15 +373,7 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
               <div className="run-actions">
                 <button
                   type="button"
-                  disabled={command.pending !== null || liveSelected.status !== "running"}
-                  onClick={() => command.run({ action: "pause", id: liveSelected.id })}
-                >
-                  <Pause size={14} />
-                  Pause
-                </button>
-                <button
-                  type="button"
-                  disabled={command.pending !== null || !["failed", "paused"].includes(liveSelected.status)}
+                  disabled={command.pending !== null || !["failed", "cancelled"].includes(liveSelected.status)}
                   onClick={() => command.run({ action: "retry", id: liveSelected.id })}
                 >
                   <RotateCcw size={14} />
@@ -388,18 +381,7 @@ export function StudioDashboard({ data, appVersion }: { data: StudioOverview; ap
                 </button>
                 <button
                   type="button"
-                  disabled={command.pending !== null || liveSelected.status !== "waiting"}
-                  onClick={() => command.run({ action: "approve", id: liveSelected.id })}
-                >
-                  <Check size={14} />
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    command.pending !== null ||
-                    !["running", "paused", "failed", "waiting", "approved"].includes(liveSelected.status)
-                  }
+                  disabled={command.pending !== null || !["queued", "running"].includes(liveSelected.status)}
                   onClick={() => command.run({ action: "cancel", id: liveSelected.id })}
                   className="danger"
                 >

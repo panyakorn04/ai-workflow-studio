@@ -20,6 +20,9 @@ export async function POST(request: Request) {
     "cancel",
     "approve",
     "create-execution",
+    "execute-previous",
+    "get-execution",
+    "delete-workflow",
     "execute-node",
     "execute-http-request",
     "import-curl",
@@ -39,6 +42,8 @@ export async function POST(request: Request) {
     "update-credential",
     "delete-credential",
     "test-credential",
+    "get-execution",
+    "delete-workflow",
   ]);
   const payloadActions = new Set(["create-workflow", "update-workflow", "create-credential", "update-credential"]);
   if (
@@ -59,7 +64,9 @@ export async function POST(request: Request) {
         command.command.length > 16384)) ||
     (command.action === "create-execution" &&
       (!("workflowId" in command) || typeof command.workflowId !== "string" || !command.workflowId.trim())) ||
-    ((command.action === "execute-node" || command.action === "execute-http-request") &&
+    ((command.action === "execute-node" ||
+      command.action === "execute-http-request" ||
+      command.action === "execute-previous") &&
       (!("workflowId" in command) ||
         typeof command.workflowId !== "string" ||
         !command.workflowId.trim() ||

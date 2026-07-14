@@ -1,6 +1,6 @@
 import type { StudioExecution } from "./studio-api";
 
-export type ExecutionStageStatus = "pending" | "running" | "completed" | "failed" | "waiting";
+export type ExecutionStageStatus = "pending" | "running" | "completed" | "failed" | "waiting" | "skipped" | "cancelled";
 export type ExecutionStage = {
   executionId: string;
   position: number;
@@ -25,9 +25,17 @@ export function parseExecutionSnapshot(value: unknown): ExecutionSnapshot {
   if (
     typeof execution.id !== "string" ||
     typeof execution.workflow !== "string" ||
-    !["completed", "running", "failed", "waiting", "paused", "approved", "cancelled"].includes(
-      String(execution.status),
-    ) ||
+    ![
+      "queued",
+      "completed",
+      "running",
+      "cancellation_requested",
+      "failed",
+      "waiting",
+      "paused",
+      "approved",
+      "cancelled",
+    ].includes(String(execution.status)) ||
     typeof execution.started !== "string" ||
     typeof execution.duration !== "string" ||
     typeof execution.durationMs !== "number" ||
@@ -45,7 +53,9 @@ export function parseExecutionSnapshot(value: unknown): ExecutionSnapshot {
       !Number.isInteger(stage.position) ||
       Number(stage.position) < 0 ||
       typeof stage.name !== "string" ||
-      !["pending", "running", "completed", "failed", "waiting"].includes(String(stage.status)) ||
+      !["pending", "running", "completed", "failed", "waiting", "skipped", "cancelled"].includes(
+        String(stage.status),
+      ) ||
       typeof stage.detail !== "string" ||
       !record(stage.metadata) ||
       typeof stage.updatedAt !== "string" ||
