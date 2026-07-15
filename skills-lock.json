@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "devops-automation": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "skillPath": "devops-automation/SKILL.md",
+      "computedHash": "5b10e70bef82a107f098973a536cc914c56020acee67592ba27cd4860178b6b4"
+    },
+    "multi-stage-dockerfile": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/multi-stage-dockerfile/SKILL.md",
+      "computedHash": "698bf93a84dae18fd7bd0b1d35c21427307fde78fbdf4624be9726f5f98189ca"
+    },
     "nextjs-code-review": {
       "source": "giuseppe-trisciuoglio/developer-kit",
       "sourceType": "github",
