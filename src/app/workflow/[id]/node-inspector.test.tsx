@@ -61,6 +61,10 @@ describe("HTTP Request node editor", () => {
     expect(html).toContain("Manual Test Trigger");
     expect(html).toContain("Execute previous nodes");
     expect(html).toContain("Import cURL");
+    expect(html).toContain("Safe mapping:");
+    expect(html).toContain("{{$json.path}}");
+    expect(html).toContain("first incoming item");
+    expect(html).toContain("use Query Parameters for mapped query values");
     expect(html).toContain("Authentication");
     expect(html).toContain("Send Query Parameters");
     expect(html).toContain("Send Headers");

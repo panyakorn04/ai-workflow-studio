@@ -885,9 +885,14 @@ function HttpRequestWorkspace({
                     type="url"
                     value={requestConfig.url}
                     onChange={(event) => saveRequestConfig({ url: event.target.value })}
-                    placeholder="https://api.example.com/data"
+                    placeholder="https://api.example.com/items/{{$json.id}}"
                   />
                 </label>
+                <div className="http-request-note">
+                  Safe mapping: <code>{"{{$json.path}}"}</code> reads from the first incoming item. URL mapping is
+                  limited to path segments; use Query Parameters for mapped query values. JavaScript, dynamic hosts, and
+                  expressions in field names are not supported.
+                </div>
                 <label>
                   Authentication
                   <select
@@ -998,7 +1003,7 @@ function HttpRequestWorkspace({
                         <input
                           aria-label={`Query parameter ${index + 1} value`}
                           value={parameter.value}
-                          placeholder="Value"
+                          placeholder="Value or {{$json.path}}"
                           onChange={(event) => {
                             const queryParameters = requestConfig.queryParameters.map((item, itemIndex) =>
                               itemIndex === index ? { ...item, value: event.target.value } : item,
@@ -1052,7 +1057,7 @@ function HttpRequestWorkspace({
                       rows={4}
                       value={headerText}
                       onChange={(event) => saveRequestConfig({ headers: event.target.value })}
-                      placeholder='{"Content-Type": "application/json"}'
+                      placeholder={'{"X-Request-ID": "{{$json.requestId}}"}'}
                     />
                   </label>
                 ) : null}
@@ -1073,7 +1078,7 @@ function HttpRequestWorkspace({
                       rows={6}
                       value={bodyText}
                       onChange={(event) => saveRequestConfig({ body: event.target.value })}
-                      placeholder='{"key": "value"}'
+                      placeholder={'{"name": "{{$json.name}}"}'}
                     />
                   </label>
                 ) : null}
