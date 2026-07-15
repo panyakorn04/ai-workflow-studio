@@ -91,19 +91,27 @@ export function NodeInspector({
   }, []);
 
   useEffect(() => {
-    executionAbortRef.current?.abort();
-    executionAbortRef.current = null;
     setSelectedTriggerId((current) =>
       enabledTriggers.some((trigger) => trigger.id === current) ? current : defaultTriggerId,
     );
-    if (node?.type === "http-request") {
-      setInput([]);
-      setOutput([]);
-      setExecutionStatus("");
-      return;
+  }, [defaultTriggerId, enabledTriggers]);
+
+  // Node identity is an intentional lifecycle boundary even though the values are not read in the reset body.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: abort only when the inspected node changes
+  useEffect(() => {
+    executionAbortRef.current?.abort();
+    executionAbortRef.current = null;
+    setExecuting(false);
+    setInput([]);
+    setOutput([]);
+    setExecutionStatus("");
+  }, [node?.id, node?.type]);
+
+  useEffect(() => {
+    if (node?.type !== "http-request") {
+      syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
     }
-    syncOutputFromPayload(node?.config?.outputPayload as string | undefined);
-  }, [defaultTriggerId, enabledTriggers, node?.config?.outputPayload, node?.type, syncOutputFromPayload]);
+  }, [node?.config?.outputPayload, node?.type, syncOutputFromPayload]);
 
   useEffect(() => () => executionAbortRef.current?.abort(), []);
 
@@ -215,6 +223,7 @@ export function NodeInspector({
         signal: controller.signal,
       });
       const payload = await response.json();
+      if (controller.signal.aborted || executionAbortRef.current !== controller) return;
       if (!response.ok || !payload.ok || typeof payload.data?.id !== "string")
         throw new Error(payload.error?.message ?? "Unable to start previous-node execution.");
 
@@ -228,6 +237,7 @@ export function NodeInspector({
           signal: controller.signal,
         });
         const detailPayload = await detailResponse.json();
+        if (controller.signal.aborted || executionAbortRef.current !== controller) return;
         if (!detailResponse.ok || !detailPayload.ok)
           throw new Error(detailPayload.error?.message ?? "Unable to load execution progress.");
         const detail = parseStudioGraphExecutionDetail(detailPayload.data);
@@ -251,6 +261,7 @@ export function NodeInspector({
           throw new Error(detail.execution.errorMessage || `Execution ${detail.execution.status}.`);
       }
     } catch (cause) {
+      if (controller.signal.aborted || executionAbortRef.current !== controller) return;
       if (cause instanceof DOMException && cause.name === "AbortError") return;
       setError(cause instanceof Error ? cause.message : "Previous-node execution failed.");
     } finally {

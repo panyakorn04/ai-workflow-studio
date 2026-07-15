@@ -88,6 +88,18 @@ describe("HTTP Request node editor", () => {
     expect(html.match(/disabled=""/g)?.length).toBeGreaterThanOrEqual(3);
   });
 
+  test("keeps execution polling alive across parameter and trigger-list edits", async () => {
+    const source = await Bun.file(new URL("./node-inspector.tsx", import.meta.url)).text();
+    expect(source).toContain("[node?.id, node?.type]");
+    expect(source).toContain("executionAbortRef.current = null;\n    setExecuting(false);");
+    expect(
+      source.match(/controller\.signal\.aborted \|\| executionAbortRef\.current !== controller/g)?.length ?? 0,
+    ).toBeGreaterThanOrEqual(2);
+    expect(source).not.toContain(
+      "[defaultTriggerId, enabledTriggers, node?.config?.outputPayload, node?.type, syncOutputFromPayload]",
+    );
+  });
+
   test("uses Execute step consistently for the request actions", () => {
     const html = renderToStaticMarkup(
       <NodeInspector
