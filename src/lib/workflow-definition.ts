@@ -45,6 +45,7 @@ export type HTTPRequestConfig = {
   body: string;
   queryParameters: HTTPRequestQueryParameter[];
   authMode: "none" | "credential";
+  genericAuthType?: "headerAuth";
   credentialId?: string;
   options: HTTPRequestOptions;
 };
@@ -228,6 +229,7 @@ export function httpRequestConfigFromRecord(config: Record<string, unknown>): HT
     body: typeof config.body === "string" ? config.body : "",
     queryParameters,
     authMode: config.authMode === "credential" ? "credential" : "none",
+    genericAuthType: config.authMode === "credential" ? "headerAuth" : undefined,
     credentialId: typeof config.credentialId === "string" ? config.credentialId : undefined,
     options: {
       timeoutMs:

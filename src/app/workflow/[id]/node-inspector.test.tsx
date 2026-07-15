@@ -65,11 +65,47 @@ describe("HTTP Request node editor", () => {
     expect(html).toContain("Send Query Parameters");
     expect(html).toContain("Send Headers");
     expect(html).toContain("Send Body");
-    expect(html).toContain("Saved credential");
+    expect(html).toContain("Generic Credential Type");
     expect(html).toContain("Configure timeout, redirects, response format, and status handling in the Settings tab.");
     expect(html).toContain("No output data");
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("Run the trigger and every upstream node through this node.");
+  });
+
+  test("renders Generic Credential Type with Header Auth and a saved Header Auth selector", () => {
+    const credentialNode = {
+      ...httpRequestNode,
+      config: {
+        ...httpRequestNode.config,
+        authMode: "credential",
+        genericAuthType: "headerAuth",
+        credentialId: "cred-header-1",
+      },
+    };
+    const html = renderToStaticMarkup(
+      <NodeInspector
+        node={credentialNode}
+        definition={{ ...definition, nodes: [definition.nodes[0], credentialNode] }}
+        workflowId="workflow-1"
+        hasUnsavedChanges={false}
+        onClose={() => {}}
+        onConfigChange={() => {}}
+      />,
+    );
+
+    expect(html).toContain("Generic Auth Type");
+    expect(html).toContain("Header Auth");
+    expect(html).toContain('aria-label="Edit selected Header Auth credential"');
+    expect(html).not.toContain("Bearer token");
+    expect(html).not.toContain("Basic authentication");
+    expect(html).not.toContain("Query API key");
+  });
+
+  test("clears an unavailable or non-Header Auth credential after metadata loads", async () => {
+    const source = await Bun.file(new URL("./node-inspector.tsx", import.meta.url)).text();
+    expect(source).toContain("!credentialsLoaded");
+    expect(source).toContain("credentialId: undefined");
+    expect(source).toContain("not an active Header Auth connection");
   });
 
   test("shows the save guard and disables request execution for dirty workflows", () => {

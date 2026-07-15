@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { parseStudioGraphExecutionDetail, type StudioCredential, type StudioCredentialType } from "@/lib/studio-admin";
+import { parseStudioGraphExecutionDetail, type StudioCredential } from "@/lib/studio-admin";
 import {
   defaultScheduleConfig,
   describeSchedule,
@@ -27,6 +27,8 @@ import {
   type WorkflowDefinitionV1,
   type WorkflowNodeDefinition,
 } from "@/lib/workflow-definition";
+
+import { HeaderAuthCredentialModal } from "./header-auth-credential-modal";
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -558,9 +560,9 @@ function HttpRequestWorkspace({
   const [showBody, setShowBody] = useState(bodyText.trim() !== "");
   const [inputFormat, setInputFormat] = useState<"json" | "table" | "schema">("json");
   const [credentials, setCredentials] = useState<StudioCredential[]>([]);
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false);
   const [credentialsError, setCredentialsError] = useState("");
-  const [showCredentialForm, setShowCredentialForm] = useState(false);
-  const [credentialAction, setCredentialAction] = useState(false);
+  const [credentialModal, setCredentialModal] = useState<"new" | StudioCredential | null>(null);
   const [showCurlImport, setShowCurlImport] = useState(false);
   const [curlCommand, setCurlCommand] = useState("");
   const [curlWarnings, setCurlWarnings] = useState<string[]>([]);
@@ -577,6 +579,7 @@ function HttpRequestWorkspace({
         const payload = await response.json();
         if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to load credentials.");
         setCredentials(Array.isArray(payload.data) ? payload.data : []);
+        setCredentialsLoaded(true);
         setCredentialsError("");
       })
       .catch((cause) => {
@@ -585,6 +588,33 @@ function HttpRequestWorkspace({
       });
     return () => controller.abort();
   }, []);
+
+  const headerAuthCredentials = useMemo(
+    () => credentials.filter((credential) => credential.type === "header" && credential.status !== "revoked"),
+    [credentials],
+  );
+  const selectedHeaderAuthCredential = headerAuthCredentials.find(
+    (credential) => credential.id === requestConfig.credentialId,
+  );
+
+  useEffect(() => {
+    if (
+      !credentialsLoaded ||
+      requestConfig.authMode !== "credential" ||
+      !requestConfig.credentialId ||
+      selectedHeaderAuthCredential
+    )
+      return;
+    onConfigChange({
+      ...node.config,
+      ...requestConfig,
+      genericAuthType: "headerAuth",
+      credentialId: undefined,
+    });
+    setCredentialsError(
+      "The previously selected credential is not an active Header Auth connection. Select another one.",
+    );
+  }, [credentialsLoaded, node.config, onConfigChange, requestConfig, selectedHeaderAuthCredential]);
 
   const executeLabel = executing ? "Executing…" : "Execute step";
   const emptyExecutionHint = canExecute ? "" : "Save your workflow changes before executing this node.";
@@ -640,37 +670,6 @@ function HttpRequestWorkspace({
       setError(cause instanceof Error ? cause.message : "Unable to import cURL command.");
     } finally {
       setImportingCurl(false);
-    }
-  };
-
-  const runCredentialAction = async (action: "test-credential" | "delete-credential") => {
-    if (!requestConfig.credentialId) return;
-    if (
-      action === "delete-credential" &&
-      !window.confirm("Delete this saved credential? Workflows using it will stop executing.")
-    )
-      return;
-    setCredentialAction(true);
-    setCredentialsError("");
-    try {
-      const response = await fetch("/api/studio/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, id: requestConfig.credentialId }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Credential action failed.");
-      if (action === "delete-credential") {
-        setCredentials((items) => items.filter((item) => item.id !== requestConfig.credentialId));
-        saveRequestConfig({ authMode: "none", credentialId: undefined });
-        setCredentialsError("Credential deleted.");
-      } else {
-        setCredentialsError("Credential encryption and schema are valid.");
-      }
-    } catch (cause) {
-      setCredentialsError(cause instanceof Error ? cause.message : "Credential action failed.");
-    } finally {
-      setCredentialAction(false);
     }
   };
 
@@ -897,70 +896,78 @@ function HttpRequestWorkspace({
                       const authMode = event.target.value as HTTPRequestConfig["authMode"];
                       saveRequestConfig({
                         authMode,
-                        credentialId: authMode === "credential" ? requestConfig.credentialId : undefined,
+                        genericAuthType: authMode === "credential" ? "headerAuth" : undefined,
+                        credentialId:
+                          authMode === "credential" && selectedHeaderAuthCredential
+                            ? selectedHeaderAuthCredential.id
+                            : undefined,
                       });
                     }}
                   >
                     <option value="none">None</option>
-                    <option value="credential">Saved credential</option>
+                    <option value="credential">Generic Credential Type</option>
                   </select>
                 </label>
                 {requestConfig.authMode === "credential" ? (
-                  <label>
-                    Credential
-                    <select
-                      value={requestConfig.credentialId || ""}
-                      onChange={(event) => saveRequestConfig({ credentialId: event.target.value })}
-                    >
-                      <option value="">Select a credential</option>
-                      {credentials.map((credential) => (
-                        <option key={credential.id} value={credential.id}>
-                          {credential.name} ({credential.type})
-                        </option>
-                      ))}
-                    </select>
-                    {credentialsError ? (
-                      <span className="http-field-error" role="status">
-                        {credentialsError}
+                  <>
+                    <label>
+                      Generic Auth Type
+                      <select
+                        value={requestConfig.genericAuthType ?? "headerAuth"}
+                        onChange={() => saveRequestConfig({ genericAuthType: "headerAuth", credentialId: undefined })}
+                      >
+                        <option value="headerAuth">Header Auth</option>
+                      </select>
+                    </label>
+                    <label>
+                      Header Auth
+                      <span className="http-credential-select-row">
+                        <select
+                          aria-label="Header Auth"
+                          value={requestConfig.credentialId || ""}
+                          onChange={(event) =>
+                            saveRequestConfig({
+                              genericAuthType: "headerAuth",
+                              credentialId: event.target.value || undefined,
+                            })
+                          }
+                        >
+                          <option value="">Select a Header Auth credential</option>
+                          {headerAuthCredentials.map((credential) => (
+                            <option key={credential.id} value={credential.id}>
+                              {credential.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="http-icon-button credential-pencil-button"
+                          aria-label="Edit selected Header Auth credential"
+                          title="Edit Header Auth connection"
+                          disabled={!selectedHeaderAuthCredential}
+                          onClick={() =>
+                            selectedHeaderAuthCredential && setCredentialModal(selectedHeaderAuthCredential)
+                          }
+                        >
+                          <Pencil size={15} />
+                        </button>
                       </span>
-                    ) : null}
-                    <span className="http-inline-actions">
-                      <button
-                        type="button"
-                        className="http-secondary-button"
-                        onClick={() => setShowCredentialForm((open) => !open)}
-                      >
-                        <Plus size={12} /> New credential
-                      </button>
-                      <button
-                        type="button"
-                        className="http-secondary-button"
-                        disabled={!requestConfig.credentialId || credentialAction}
-                        onClick={() => runCredentialAction("test-credential")}
-                      >
-                        Test
-                      </button>
-                      <button
-                        type="button"
-                        className="http-icon-button"
-                        aria-label="Delete selected credential"
-                        disabled={!requestConfig.credentialId || credentialAction}
-                        onClick={() => runCredentialAction("delete-credential")}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </span>
-                  </label>
-                ) : null}
-                {showCredentialForm ? (
-                  <CredentialCreateForm
-                    onCancel={() => setShowCredentialForm(false)}
-                    onCreated={(credential) => {
-                      setCredentials((items) => [credential, ...items]);
-                      saveRequestConfig({ authMode: "credential", credentialId: credential.id });
-                      setShowCredentialForm(false);
-                    }}
-                  />
+                      {credentialsError ? (
+                        <span className="http-field-error" role="status">
+                          {credentialsError}
+                        </span>
+                      ) : null}
+                      <span className="http-inline-actions">
+                        <button
+                          type="button"
+                          className="http-secondary-button"
+                          onClick={() => setCredentialModal("new")}
+                        >
+                          <Plus size={12} /> New Header Auth
+                        </button>
+                      </span>
+                    </label>
+                  </>
                 ) : null}
 
                 <HttpOptionToggle
@@ -1159,115 +1166,22 @@ function HttpRequestWorkspace({
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-function CredentialCreateForm({
-  onCreated,
-  onCancel,
-}: {
-  onCreated: (credential: StudioCredential) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState<StudioCredentialType>("bearer");
-  const [firstValue, setFirstValue] = useState("");
-  const [secondValue, setSecondValue] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
-  const firstLabel = type === "bearer" ? "Token" : type === "basic" ? "Username" : "Parameter/header name";
-  const secondLabel = type === "basic" ? "Password" : "Value";
-
-  const createCredential = async () => {
-    setSaving(true);
-    setFormError("");
-    try {
-      const data =
-        type === "bearer"
-          ? { token: firstValue }
-          : type === "basic"
-            ? { username: firstValue, password: secondValue }
-            : { name: firstValue, value: secondValue };
-      const response = await fetch("/api/studio/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create-credential", payload: { name, type, data } }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.ok) throw new Error(payload.error?.message ?? "Unable to create credential.");
-      setFirstValue("");
-      setSecondValue("");
-      onCreated(payload.data as StudioCredential);
-    } catch (cause) {
-      setFormError(cause instanceof Error ? cause.message : "Unable to create credential.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="http-credential-form">
-      <strong>New encrypted credential</strong>
-      <label>
-        Name
-        <input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} />
-      </label>
-      <label>
-        Type
-        <select
-          value={type}
-          onChange={(event) => {
-            setType(event.target.value as StudioCredentialType);
-            setFirstValue("");
-            setSecondValue("");
+      {credentialModal ? (
+        <HeaderAuthCredentialModal
+          credential={credentialModal === "new" ? undefined : credentialModal}
+          onClose={() => setCredentialModal(null)}
+          onSaved={(credential) => {
+            setCredentials((items) => [credential, ...items.filter((item) => item.id !== credential.id)]);
+            saveRequestConfig({ authMode: "credential", genericAuthType: "headerAuth", credentialId: credential.id });
+            setCredentialModal(null);
           }}
-        >
-          <option value="bearer">Bearer token</option>
-          <option value="basic">Basic authentication</option>
-          <option value="header">Header/API key</option>
-          <option value="query">Query API key</option>
-        </select>
-      </label>
-      <label>
-        {firstLabel}
-        <input
-          type={type === "bearer" ? "password" : "text"}
-          autoComplete="off"
-          value={firstValue}
-          onChange={(event) => setFirstValue(event.target.value)}
+          onDeleted={(credentialId) => {
+            setCredentials((items) => items.filter((item) => item.id !== credentialId));
+            if (requestConfig.credentialId === credentialId) saveRequestConfig({ credentialId: undefined });
+            setCredentialModal(null);
+          }}
         />
-      </label>
-      {type !== "bearer" ? (
-        <label>
-          {secondLabel}
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={secondValue}
-            onChange={(event) => setSecondValue(event.target.value)}
-          />
-        </label>
       ) : null}
-      {formError ? (
-        <span className="http-field-error" role="alert">
-          {formError}
-        </span>
-      ) : null}
-      <div className="http-inline-actions">
-        <button
-          type="button"
-          className="manual-execute"
-          disabled={saving || name.trim().length < 2 || !firstValue || (type !== "bearer" && !secondValue)}
-          onClick={createCredential}
-        >
-          {saving ? "Saving…" : "Save credential"}
-        </button>
-        <button type="button" className="http-secondary-button" disabled={saving} onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-      <small>Secret values are encrypted by the backend and are never returned to this browser.</small>
     </div>
   );
 }

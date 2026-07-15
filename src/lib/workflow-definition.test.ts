@@ -78,11 +78,13 @@ describe("workflow definition", () => {
       ...defaults,
       queryParameters: [{ name: "limit", value: "10" }],
       authMode: "credential",
+      genericAuthType: "headerAuth",
       credentialId: "cred-1",
       options: { timeoutMs: 5000, followRedirects: false, responseFormat: "json" },
     });
     expect(config.queryParameters).toEqual([{ name: "limit", value: "10" }]);
     expect(config.credentialId).toBe("cred-1");
+    expect(config.genericAuthType).toBe("headerAuth");
     expect(config.options).toMatchObject({
       timeoutMs: 5000,
       followRedirects: false,
